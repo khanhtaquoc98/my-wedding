@@ -640,8 +640,8 @@ export default function WeddingPlanner() {
         <div className="logoArea">
           <h1>Khánh & Linh</h1>
           <p>Kế Hoạch Cưới 2026</p>
-          <div style={{ marginTop: '8px', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
-            <Heart size={14} fill="var(--accent-rose)" color="var(--accent-rose)" />
+          <div style={{ marginTop: '10px', display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+            <Heart size={14} fill="var(--sage-400)" color="var(--sage-400)" />
           </div>
         </div>
 
@@ -684,42 +684,42 @@ export default function WeddingPlanner() {
         </nav>
 
         {/* Database Sync Status indicator */}
-        <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(125,149,134,0.2)' }}>
+        <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
           {dbSetupRequired ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem', background: 'rgba(189, 116, 107, 0.1)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(189, 116, 107, 0.3)' }}>
-              <span style={{ color: 'var(--accent-rose)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem', background: 'var(--rose-100)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(198, 107, 95, 0.2)' }}>
+              <span style={{ color: 'var(--rose-500)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Database size={12} /> Cần Setup DB
               </span>
               <button 
                 onClick={() => loadData()} 
-                style={{ background: 'var(--accent-moss)', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                style={{ background: 'linear-gradient(135deg, var(--sage-600), var(--sage-700))', color: 'white', border: 'none', padding: '7px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.72rem' }}
               >
                 Tải lại Live
               </button>
             </div>
           ) : isOfflineMode ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem', background: 'rgba(197, 154, 85, 0.1)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(197, 154, 85, 0.3)' }}>
-              <span style={{ color: 'var(--accent-gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem', background: 'var(--gold-100)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(212, 164, 42, 0.15)' }}>
+              <span style={{ color: 'var(--gold-600)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Info size={12} /> Chế độ Demo
               </span>
-              <p style={{ color: 'var(--accent-muted)', fontSize: '0.65rem' }}>Dữ liệu lưu tạm trên trình duyệt của bạn.</p>
+              <p style={{ color: 'var(--muted-foreground)', fontSize: '0.65rem' }}>Dữ liệu lưu tạm trên trình duyệt của bạn.</p>
               {!dbSetupRequired && (
                 <button 
                   onClick={() => switchMode(false)}
-                  style={{ background: 'var(--accent-moss)', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ background: 'linear-gradient(135deg, var(--sage-600), var(--sage-700))', color: 'white', border: 'none', padding: '7px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.72rem' }}
                 >
                   Kết nối Supabase
                 </button>
               )}
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '0.75rem', color: '#2e593a', background: 'rgba(125, 149, 134, 0.15)', padding: '8px 12px', borderRadius: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '0.75rem', color: 'var(--sage-700)', background: 'var(--sage-100)', padding: '10px 14px', borderRadius: '10px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
                 <Check size={14} /> Live Supabase
               </span>
               <button 
                 onClick={() => switchMode(true)}
-                style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--accent-muted)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.7rem' }}
+                style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--muted-foreground)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.7rem' }}
               >
                 Demo
               </button>
@@ -740,18 +740,18 @@ export default function WeddingPlanner() {
 
         {/* Database setup assistance box (if needed) */}
         {dbSetupRequired && activeTab === 'dashboard' && (
-          <div style={{ background: '#fff', border: '1px solid var(--accent-rose)', borderRadius: '8px', padding: '20px', marginBottom: '24px', boxShadow: 'var(--shadow-premium)' }}>
-            <h3 style={{ color: 'var(--accent-rose)', fontFamily: 'var(--font-serif)', fontSize: '1.2rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ background: 'var(--card)', border: '1px solid rgba(198, 107, 95, 0.2)', borderRadius: '14px', padding: '22px', marginBottom: '24px', boxShadow: 'var(--shadow-md)' }}>
+            <h3 style={{ color: 'var(--rose-500)', fontFamily: 'var(--font-display)', fontSize: '1.15rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
               <Database /> Hướng dẫn tạo bảng trong Supabase
             </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--accent-muted)', marginBottom: '12px' }}>
-              Dự án Next.js đã kết nối với Supabase của bạn, nhưng chưa tìm thấy các bảng dữ liệu. Bạn có thể copy tệp <code style={{ background: 'rgba(27,51,44,0.06)', padding: '2px 6px', borderRadius: '4px' }}>supabase-schema.sql</code> ở thư mục gốc của dự án này để chạy trong phần **SQL Editor** trên trang quản lý Supabase.
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted-foreground)', marginBottom: '14px', lineHeight: 1.6 }}>
+              Dự án Next.js đã kết nối với Supabase của bạn, nhưng chưa tìm thấy các bảng dữ liệu. Bạn có thể copy tệp <code style={{ background: 'var(--sage-100)', padding: '2px 8px', borderRadius: '6px', fontSize: '0.82rem' }}>supabase-schema.sql</code> ở thư mục gốc của dự án này để chạy trong phần **SQL Editor** trên trang quản lý Supabase.
             </p>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => loadData()} className="btn btnPrimary" style={{ fontSize: '0.75rem', padding: '8px 14px' }}>
+              <button onClick={() => loadData()} className="btn btnPrimary" style={{ fontSize: '0.75rem', padding: '8px 16px' }}>
                 <RefreshCw size={14} /> Kiểm tra lại kết nối
               </button>
-              <button onClick={() => setDbSetupRequired(false)} className="btn btnSecondary" style={{ fontSize: '0.75rem', padding: '8px 14px' }}>
+              <button onClick={() => setDbSetupRequired(false)} className="btn btnSecondary" style={{ fontSize: '0.75rem', padding: '8px 16px' }}>
                 Bỏ qua và dùng Bản Demo
               </button>
             </div>
@@ -801,7 +801,7 @@ export default function WeddingPlanner() {
                   <div className="metricCard sage">
                     <span className="metricLabel">Đã thanh toán</span>
                     <span className="metricValue">{formatVND(totals.paidCost)}</span>
-                    <span className="metricSubtext" style={{ color: '#2e593a', fontWeight: 'bold' }}>
+                    <span className="metricSubtext" style={{ color: 'var(--sage-700)', fontWeight: 'bold' }}>
                       Còn lại: {formatVND(totals.remainingToPay)}
                     </span>
                   </div>
@@ -855,29 +855,29 @@ export default function WeddingPlanner() {
                     {/* Guests Summary in Dashboard */}
                     <div className="sectionCard">
                       <h2>Khách mời & RSVP</h2>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px', textAlign: 'center', marginTop: '10px' }}>
-                        <div style={{ background: 'rgba(27, 51, 44, 0.03)', padding: '16px', borderRadius: '6px' }}>
-                          <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-muted)', marginBottom: '4px' }}>Tổng khách</h4>
-                          <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.8rem', color: 'var(--accent-moss)' }}>{guestStats.total}</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '14px', textAlign: 'center', marginTop: '12px' }}>
+                        <div style={{ background: 'var(--sage-50)', padding: '18px 16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                          <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '4px', letterSpacing: '0.06em', fontWeight: 600 }}>Tổng khách</h4>
+                          <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.9rem', color: 'var(--sage-700)', fontWeight: 600 }}>{guestStats.total}</p>
                         </div>
-                        <div style={{ background: 'rgba(125, 149, 134, 0.1)', padding: '16px', borderRadius: '6px' }}>
-                          <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#2e593a', marginBottom: '4px' }}>Tham gia</h4>
-                          <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.8rem', color: '#2e593a' }}>{guestStats.attending}</p>
-                          <small style={{ fontSize: '0.65rem', color: 'var(--accent-muted)' }}>+{guestStats.attendingTotalPeople - guestStats.attending} người đi cùng</small>
+                        <div style={{ background: 'var(--status-attending-bg)', padding: '18px 16px', borderRadius: '12px', border: '1px solid rgba(45, 106, 62, 0.12)' }}>
+                          <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--sage-700)', marginBottom: '4px', letterSpacing: '0.06em', fontWeight: 600 }}>Tham gia</h4>
+                          <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.9rem', color: 'var(--sage-700)', fontWeight: 600 }}>{guestStats.attending}</p>
+                          <small style={{ fontSize: '0.65rem', color: 'var(--muted-foreground)' }}>+{guestStats.attendingTotalPeople - guestStats.attending} người đi cùng</small>
                         </div>
-                        <div style={{ background: 'rgba(197, 154, 85, 0.08)', padding: '16px', borderRadius: '6px' }}>
-                          <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-gold)', marginBottom: '4px' }}>Đã mời</h4>
-                          <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.8rem', color: 'var(--accent-gold)' }}>{guestStats.invited}</p>
+                        <div style={{ background: 'var(--gold-100)', padding: '18px 16px', borderRadius: '12px', border: '1px solid rgba(212, 164, 42, 0.1)' }}>
+                          <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--gold-600)', marginBottom: '4px', letterSpacing: '0.06em', fontWeight: 600 }}>Đã mời</h4>
+                          <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.9rem', color: 'var(--gold-500)', fontWeight: 600 }}>{guestStats.invited}</p>
                         </div>
-                        <div style={{ background: 'rgba(189, 116, 107, 0.08)', padding: '16px', borderRadius: '6px' }}>
-                          <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-rose)', marginBottom: '4px' }}>Từ chối</h4>
-                          <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.8rem', color: 'var(--accent-rose)' }}>{guestStats.declined}</p>
+                        <div style={{ background: 'var(--rose-100)', padding: '18px 16px', borderRadius: '12px', border: '1px solid rgba(198, 107, 95, 0.1)' }}>
+                          <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--rose-600)', marginBottom: '4px', letterSpacing: '0.06em', fontWeight: 600 }}>Từ chối</h4>
+                          <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.9rem', color: 'var(--rose-500)', fontWeight: 600 }}>{guestStats.declined}</p>
                         </div>
                       </div>
-                      <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--accent-muted)', borderTop: '1px solid rgba(125,149,134,0.1)', paddingTop: '12px' }}>
-                        <span>Nhà trai: <strong>{guestStats.groomSide}</strong></span>
-                        <span>Nhà gái: <strong>{guestStats.brideSide}</strong></span>
-                        <span>Chưa mời: <strong>{guestStats.uninvited}</strong></span>
+                      <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--muted-foreground)', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                        <span>Nhà trai: <strong style={{ color: 'var(--sage-700)' }}>{guestStats.groomSide}</strong></span>
+                        <span>Nhà gái: <strong style={{ color: 'var(--rose-500)' }}>{guestStats.brideSide}</strong></span>
+                        <span>Chưa mời: <strong style={{ color: 'var(--gold-500)' }}>{guestStats.uninvited}</strong></span>
                       </div>
                     </div>
                   </div>
@@ -888,12 +888,12 @@ export default function WeddingPlanner() {
                       <h2>Tiến độ checklist</h2>
                       <div className="circularProgressWrapper">
                         <svg width="180" height="180" viewBox="0 0 100 100">
-                          <circle cx="50" cy="50" r="40" stroke="rgba(125, 149, 134, 0.15)" strokeWidth="6" fill="transparent" />
+                          <circle cx="50" cy="50" r="40" stroke="var(--sage-100)" strokeWidth="6" fill="transparent" />
                           <circle 
                             cx="50" 
                             cy="50" 
                             r="40" 
-                            stroke="var(--accent-moss)" 
+                            stroke="var(--sage-500)" 
                             strokeWidth="6" 
                             fill="transparent" 
                             strokeDasharray={251.2}
@@ -918,7 +918,7 @@ export default function WeddingPlanner() {
                     </div>
 
                     {/* Financial Summary Box */}
-                    <div className="sectionCard" style={{ background: totals.balance >= 0 ? 'rgba(125, 149, 134, 0.08)' : 'rgba(189, 116, 107, 0.08)', borderColor: totals.balance >= 0 ? 'rgba(125,149,134,0.3)' : 'rgba(189,116,107,0.3)' }}>
+                    <div className="sectionCard" style={{ background: totals.balance >= 0 ? 'var(--sage-50)' : 'var(--rose-100)', borderColor: totals.balance >= 0 ? 'var(--border-strong)' : 'rgba(198, 107, 95, 0.2)' }}>
                       <h2>Cân đối tài chính</h2>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div className="flexBetween" style={{ fontSize: '0.9rem' }}>
@@ -929,9 +929,9 @@ export default function WeddingPlanner() {
                           <span>Tổng chi thực tế:</span>
                           <strong style={{ color: 'var(--accent-rose)' }}>{formatVND(totals.actualCost)}</strong>
                         </div>
-                        <div style={{ borderTop: '1px solid rgba(125, 149, 134, 0.2)', paddingTop: '8px', marginTop: '8px' }} className="flexBetween">
+                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '10px' }} className="flexBetween">
                           <span style={{ fontWeight: 700 }}>{totals.balance >= 0 ? 'Còn dư:' : 'Thiếu hụt:'}</span>
-                          <strong style={{ fontSize: '1.25rem', color: totals.balance >= 0 ? '#2e593a' : 'var(--accent-rose)' }}>
+                          <strong style={{ fontSize: '1.25rem', color: totals.balance >= 0 ? 'var(--sage-700)' : 'var(--rose-500)' }}>
                             {formatVND(Math.abs(totals.balance))}
                           </strong>
                         </div>
@@ -1012,7 +1012,7 @@ export default function WeddingPlanner() {
                                 <td className="textRight" style={{ color: 'var(--accent-rose)', fontWeight: 600 }}>
                                   {formatVND(item.actual_amount).replace(' ₫', '')}
                                 </td>
-                                <td className="textRight" style={{ color: '#2e593a' }}>
+                                <td className="textRight" style={{ color: 'var(--sage-700)' }}>
                                   {formatVND(item.paid_amount).replace(' ₫', '')}
                                 </td>
                                 <td className="textRight" style={{ fontWeight: 600, color: unpaid > 0 ? 'var(--accent-gold)' : 'var(--accent-muted)' }}>
@@ -1144,7 +1144,7 @@ export default function WeddingPlanner() {
                   <div>
                     <h2 className="pageTitle">Danh sách khách mời</h2>
                     <p style={{ color: 'var(--accent-muted)', fontSize: '0.9rem' }}>
-                      Tổng: <strong>{guestStats.total} khách</strong> | Tham gia: <strong style={{ color: '#2e593a' }}>{guestStats.attendingTotalPeople} người</strong> | Tiền mừng nhận được: <strong style={{ color: 'var(--accent-gold)' }}>{formatVND(totals.gifts)}</strong>
+                      Tổng: <strong>{guestStats.total} khách</strong> | Tham gia: <strong style={{ color: 'var(--sage-700)' }}>{guestStats.attendingTotalPeople} người</strong> | Tiền mừng nhận được: <strong style={{ color: 'var(--accent-gold)' }}>{formatVND(totals.gifts)}</strong>
                     </p>
                   </div>
                   <button onClick={() => { setEditingItem(null); setShowModal('guest'); }} className="btn btnPrimary">
