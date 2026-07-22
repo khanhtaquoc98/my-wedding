@@ -349,12 +349,13 @@ html {
   box-sizing: border-box;
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 @media (min-width: 768px) {
   .mainContent {
     padding: 40px 44px;
-    max-width: 1200px;
+    max-width: 100%;
   }
 }
 
@@ -527,6 +528,8 @@ html {
   padding: 18px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 300ms ease;
+  position: relative;
+  z-index: 2;
 }
 
 .sectionCard:hover {
@@ -686,6 +689,8 @@ html {
   width: 100%;
   -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
 }
 
 .customTable {
@@ -799,7 +804,12 @@ html {
 .inputGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.inputGroup:last-child {
+  margin-bottom: 0;
 }
 
 .inputGroup label {
@@ -807,6 +817,7 @@ html {
   font-weight: 600;
   color: var(--sage-800);
   letter-spacing: 0.01em;
+  margin-bottom: 2px;
 }
 
 @media (min-width: 768px) {
@@ -828,6 +839,18 @@ html {
   transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
   box-shadow: var(--shadow-xs);
+}
+
+.formSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233d5e48' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
+  padding-right: 36px !important;
+  cursor: pointer;
 }
 
 @media (min-width: 768px) {
@@ -1376,3 +1399,123 @@ html {
   background: rgba(125, 169, 138, 0.25);
   color: var(--sage-900);
 }
+
+/* ——— Custom Date Input & Picker Styling ——— */
+.dateWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.customDateInput {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  padding-right: 40px !important;
+}
+
+.customDateInput::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dateWrapper .calendarIcon {
+  position: absolute;
+  right: 14px;
+  color: var(--sage-400);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.dateWrapper:focus-within .calendarIcon {
+  color: var(--sage-600);
+}
+
+/* ——— Bulk Items & Form Array Styling ——— */
+.bulkItemBlock {
+  background: rgba(125, 169, 138, 0.05);
+  border: 1px solid rgba(125, 169, 138, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 20px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.bulkItemBlock:hover {
+  border-color: var(--sage-400);
+  background: rgba(125, 169, 138, 0.08);
+}
+
+.bulkItemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  border-bottom: 1px dashed rgba(125, 169, 138, 0.2);
+  padding-bottom: 8px;
+}
+
+.bulkItemTitle {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--sage-700);
+}
+
+.removeRowBtn {
+  background: transparent;
+  border: none;
+  color: var(--accent-rose);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.removeRowBtn:hover {
+  background: rgba(198, 107, 95, 0.1);
+  color: #b9423c;
+}
+
+.addBulkRowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 1.5px dashed var(--sage-300);
+  background: transparent;
+  color: var(--sage-700);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 10px;
+  margin-bottom: 24px;
+}
+
+.addBulkRowBtn:hover {
+  background: rgba(125, 169, 138, 0.08);
+  border-color: var(--sage-500);
+  color: var(--sage-900);
+}
+
+/* ——— Animation ——— */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+

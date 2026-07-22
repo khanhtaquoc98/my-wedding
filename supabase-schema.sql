@@ -52,3 +52,21 @@ ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
 ALTER TABLE income DISABLE ROW LEVEL SECURITY;
 ALTER TABLE guests DISABLE ROW LEVEL SECURITY;
 ALTER TABLE checklist DISABLE ROW LEVEL SECURITY;
+
+-- 5. Table for Configuration (Cấu hình)
+CREATE TABLE IF NOT EXISTS config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+ALTER TABLE config DISABLE ROW LEVEL SECURITY;
+
+-- Insert default configurations
+INSERT INTO config (key, value) VALUES
+  ('expenseCategories', '["Tiệc cưới", "Trang phục", "Trang trí", "Mâm quả", "Quay phim/Chụp ảnh", "Khác"]'::jsonb),
+  ('incomeSources', '["Bố mẹ chú rể", "Bố mẹ cô dâu", "Tự túc", "Khác"]'::jsonb),
+  ('checklistCategories', '["Trước ngày cưới", "Trong ngày cưới", "Sau ngày cưới"]'::jsonb),
+  ('defaultGuestGroups', '["Họ hàng", "Đồng nghiệp", "Bạn bè", "Bạn cấp 3"]'::jsonb),
+  ('weddingDate', '"2026-11-20"'::jsonb)
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+

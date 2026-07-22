@@ -20,10 +20,70 @@ import {
   Info,
   RefreshCw,
   Database,
-  Heart
+  Heart,
+  Settings
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import TagConfigList from './TagConfigList';
+import CustomSelect from './CustomSelect';
 import './budget.css';
+
+// Central configuration default values
+const DEFAULT_CONFIG = {
+  expenseCategories: [
+    'Tiệc cưới',
+    'Trang phục',
+    'Trang trí',
+    'Mâm quả',
+    'Quay phim/Chụp ảnh',
+    'Khác'
+  ],
+  incomeSources: [
+    'Bố mẹ chú rể',
+    'Bố mẹ cô dâu',
+    'Tự túc',
+    'Khác'
+  ],
+  checklistCategories: [
+    'Trước ngày cưới',
+    'Trong ngày cưới',
+    'Sau ngày cưới'
+  ],
+  defaultGuestGroups: [
+    'Họ hàng',
+    'Đồng nghiệp',
+    'Bạn bè',
+    'Bạn cấp 3'
+  ],
+  weddingDate: '2026-11-20',
+  bgColor: '#faf8f3',
+  textColor: '#1a2b20',
+  categoryColors: {
+    'Tiệc cưới': { bgColor: '#e4ede7', textColor: '#3d5e48' },
+    'Trang phục': { bgColor: '#fce8e6', textColor: '#c66b5f' },
+    'Trang trí': { bgColor: '#eef2e5', textColor: '#6d8644' },
+    'Mâm quả': { bgColor: '#fce8e6', textColor: '#c66b5f' },
+    'Quay phim/Chụp ảnh': { bgColor: '#fef5e2', textColor: '#b08520' },
+    'Khác': { bgColor: '#f4f7f5', textColor: '#5e8f6d' }
+  } as Record<string, { bgColor: string; textColor: string }>,
+  incomeSourceColors: {
+    'Bố mẹ chú rể': { bgColor: '#eef2e5', textColor: '#6d8644' },
+    'Bố mẹ cô dâu': { bgColor: '#fce8e6', textColor: '#c66b5f' },
+    'Tự túc': { bgColor: '#e4ede7', textColor: '#3d5e48' },
+    'Khác': { bgColor: '#f4f7f5', textColor: '#5e8f6d' }
+  } as Record<string, { bgColor: string; textColor: string }>,
+  guestGroupColors: {
+    'Họ hàng': { bgColor: '#e4ede7', textColor: '#3d5e48' },
+    'Đồng nghiệp': { bgColor: '#eef2e5', textColor: '#6d8644' },
+    'Bạn bè': { bgColor: '#fce8e6', textColor: '#c66b5f' },
+    'Bạn cấp 3': { bgColor: '#fef5e2', textColor: '#b08520' }
+  } as Record<string, { bgColor: string; textColor: string }>,
+  checklistCategoryColors: {
+    'Trước ngày cưới': { bgColor: '#fef5e2', textColor: '#b08520' },
+    'Trong ngày cưới': { bgColor: '#fce8e6', textColor: '#c66b5f' },
+    'Sau ngày cưới': { bgColor: '#e4ede7', textColor: '#3d5e48' }
+  } as Record<string, { bgColor: string; textColor: string }>
+};
 
 // TypeScript Interfaces
 interface Expense {
@@ -106,7 +166,7 @@ const defaultChecklist: ChecklistItem[] = [
 
 export default function WeddingPlanner() {
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'expenses' | 'income' | 'guests' | 'checklist'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'expenses' | 'income' | 'guests' | 'checklist' | 'settings'>('dashboard');
   
   // App States
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -126,16 +186,180 @@ export default function WeddingPlanner() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   // Filter States
-  const [expenseFilter, setExpenseFilter] = useState('All');
+  const [expenseFilter, setExpenseFilter] = useState<string[]>(['All']);
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [incomeFilter, setIncomeFilter] = useState('All');
   const [guestSearch, setGuestSearch] = useState('');
   const [guestSideFilter, setGuestSideFilter] = useState('All');
   const [guestStatusFilter, setGuestStatusFilter] = useState('All');
   const [checklistFilter, setChecklistFilter] = useState('All');
 
+  // Sort States
+  const [expenseSort, setExpenseSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [incomeSort, setIncomeSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [guestSort, setGuestSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  // Config state (Single Source of Truth)
+  const [config, setConfig] = useState<typeof DEFAULT_CONFIG>(DEFAULT_CONFIG);
+
+  // Bulk creation state
+  const [bulkItems, setBulkItems] = useState<any[]>([]);
+
+  const handleUpdateConfig = async (newConfig: typeof DEFAULT_CONFIG) => {
+    setConfig(newConfig);
+    localStorage.setItem('wedding_config', JSON.stringify(newConfig));
+    
+    if (!isOfflineMode) {
+      try {
+        const upserts = Object.entries(newConfig).map(([key, value]) => ({
+          key,
+          value
+        }));
+        const { error } = await supabase.from('config').upsert(upserts);
+        if (error) throw error;
+        showToast('Đã lưu cấu hình lên Supabase');
+      } catch (err: any) {
+        showToast('Lỗi lưu cấu hình: ' + err.message);
+      }
+    } else {
+      showToast('Đã lưu cấu hình ngoại tuyến');
+    }
+  };
+
+  const handleWeddingDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    const newConfig = { ...config, weddingDate: newDate };
+    handleUpdateConfig(newConfig);
+  };
+
+  const handleToggleExpenseFilter = (cat: string) => {
+    const categoriesList = config.expenseCategories;
+    const isAllCurrentlyChecked = expenseFilter.includes('All') || expenseFilter.length === categoriesList.length;
+
+    if (cat === 'All') {
+      if (isAllCurrentlyChecked) {
+        setExpenseFilter([]);
+      } else {
+        setExpenseFilter(['All']);
+      }
+    } else {
+      setExpenseFilter(prev => {
+        let currentList = prev.includes('All') ? [...categoriesList] : [...prev];
+        if (currentList.includes(cat)) {
+          currentList = currentList.filter(c => c !== cat);
+        } else {
+          currentList.push(cat);
+        }
+        if (currentList.length === categoriesList.length || currentList.length === 0) {
+          return ['All'];
+        }
+        return currentList;
+      });
+    }
+  };
+
+  const handleSort = (
+    tab: 'expense' | 'income' | 'guest', 
+    key: string
+  ) => {
+    const setSort = tab === 'expense' ? setExpenseSort 
+                  : tab === 'income' ? setIncomeSort 
+                  : setGuestSort;
+
+    setSort(prev => {
+      if (prev && prev.key === key) {
+        if (prev.direction === 'asc') {
+          return { key, direction: 'desc' };
+        }
+        return null;
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const renderSortHeader = (
+    tab: 'expense' | 'income' | 'guest', 
+    key: string, 
+    label: string,
+    alignRight = false,
+    extraStyle?: React.CSSProperties
+  ) => {
+    const currentSort = tab === 'expense' ? expenseSort 
+                      : tab === 'income' ? incomeSort 
+                      : guestSort;
+    const isSorted = currentSort && currentSort.key === key;
+    const arrow = !isSorted ? ' ⇅' : currentSort.direction === 'asc' ? ' ▲' : ' ▼';
+    
+    return (
+      <th 
+        onClick={() => handleSort(tab, key)}
+        className={`${alignRight ? 'textRight' : ''}`}
+        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...extraStyle }}
+      >
+        <span>{label}</span>
+        <span style={{ fontSize: '0.75rem', opacity: isSorted ? 1 : 0.4, color: isSorted ? 'var(--sage-700)' : 'inherit', marginLeft: '4px' }}>
+          {arrow}
+        </span>
+      </th>
+    );
+  };
+
+
+
+  const daysRemaining = useMemo(() => {
+    if (!config.weddingDate) return null;
+    const wDate = new Date(config.weddingDate);
+    wDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = wDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }, [config.weddingDate]);
+
+  const getInitialItem = (type: string) => {
+    const uniqueId = 'bulk-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+    if (type === 'expense') {
+      return { id: uniqueId, name: '', category: config.expenseCategories[0] || DEFAULT_CONFIG.expenseCategories[0], planned_amount: '', actual_amount: '', paid_amount: '', notes: '' };
+    }
+    if (type === 'income') {
+      return { id: uniqueId, name: '', source: config.incomeSources[0] || DEFAULT_CONFIG.incomeSources[0], amount: '', notes: '' };
+    }
+    if (type === 'guest') {
+      return { id: uniqueId, name: '', side: 'groom', group_name: config.defaultGuestGroups[2] || 'Bạn bè', phone: '', status: 'uninvited', rsvp_count: '0', gift_amount: '0', notes: '' };
+    }
+    return { id: uniqueId, task: '', category: config.checklistCategories[0] || DEFAULT_CONFIG.checklistCategories[0], due_date: '', assigned_to: 'Cả hai', notes: '' };
+  };
+
+  const handleBulkItemChange = (index: number, field: string, value: any) => {
+    setBulkItems(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const handleOpenCreateModal = (type: 'expense' | 'income' | 'guest' | 'checklist') => {
+    setEditingItem(null);
+    setShowModal(type);
+    setBulkItems([getInitialItem(type)]);
+  };
+
   // Load Data
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.customMultiselect')) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
   }, []);
 
   const loadData = async (forceOffline = false) => {
@@ -174,12 +398,14 @@ export default function WeddingPlanner() {
         { data: expData, error: expErr },
         { data: incData, error: incErr },
         { data: gstData, error: gstErr },
-        { data: chkData, error: chkErr }
+        { data: chkData, error: chkErr },
+        { data: configData, error: configErr }
       ] = await Promise.all([
         supabase.from('expenses').select('*').order('created_at', { ascending: false }),
         supabase.from('income').select('*').order('created_at', { ascending: false }),
         supabase.from('guests').select('*').order('name', { ascending: true }),
-        supabase.from('checklist').select('*').order('created_at', { ascending: true })
+        supabase.from('checklist').select('*').order('created_at', { ascending: true }),
+        supabase.from('config').select('*')
       ]);
 
       if (expErr) throw expErr;
@@ -191,6 +417,23 @@ export default function WeddingPlanner() {
       setIncome(incData || []);
       setGuests(gstData || []);
       setChecklist(chkData || []);
+
+      if (!configErr && configData && configData.length > 0) {
+        const loadedConfig = { ...DEFAULT_CONFIG };
+        configData.forEach(row => {
+          if (row.key in loadedConfig) {
+            (loadedConfig as any)[row.key] = row.value;
+          }
+        });
+        setConfig(loadedConfig);
+        localStorage.setItem('wedding_config', JSON.stringify(loadedConfig));
+      } else {
+        const localConfig = localStorage.getItem('wedding_config');
+        if (localConfig) {
+          try { setConfig(JSON.parse(localConfig)); } catch (e) {}
+        }
+      }
+
       setIsOfflineMode(false);
       localStorage.setItem('wedding_planner_offline', 'false');
     } catch (err: any) {
@@ -210,11 +453,22 @@ export default function WeddingPlanner() {
     const localInc = localStorage.getItem('offline_income');
     const localGst = localStorage.getItem('offline_guests');
     const localChk = localStorage.getItem('offline_checklist');
+    const localConfig = localStorage.getItem('wedding_config');
 
     setExpenses(localExp ? JSON.parse(localExp) : defaultExpenses);
     setIncome(localInc ? JSON.parse(localInc) : defaultIncome);
     setGuests(localGst ? JSON.parse(localGst) : defaultGuests);
     setChecklist(localChk ? JSON.parse(localChk) : defaultChecklist);
+
+    if (localConfig) {
+      try {
+        setConfig(JSON.parse(localConfig));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      setConfig(DEFAULT_CONFIG);
+    }
   };
 
   const syncOfflineStorage = (
@@ -242,6 +496,38 @@ export default function WeddingPlanner() {
   // Helper formatting function
   const formatVND = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+  };
+
+  const formatCurrency = (val: string | number | undefined | null) => {
+    if (val === undefined || val === null || val === '') return '';
+    const clean = String(val).replace(/\D/g, '');
+    if (!clean) return '';
+    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const parseCurrency = (val: any) => {
+    if (!val) return 0;
+    const clean = String(val).replace(/\./g, '');
+    return Number(clean) || 0;
+  };
+
+  const handleNumberInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const value = input.value;
+    const selectionStart = input.selectionStart;
+    const oldLength = value.length;
+    
+    const clean = value.replace(/\D/g, '');
+    const formatted = clean ? clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+    
+    input.value = formatted;
+    
+    if (selectionStart !== null) {
+      const newLength = formatted.length;
+      const diff = newLength - oldLength;
+      const newPos = Math.max(0, selectionStart + diff);
+      input.setSelectionRange(newPos, newPos);
+    }
   };
 
   // ----------------------------------------------------
@@ -309,45 +595,77 @@ export default function WeddingPlanner() {
   // Expenses CRUD
   const handleSaveExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const category = formData.get('category') as string;
-    const name = formData.get('name') as string;
-    const planned_amount = Number(formData.get('planned_amount')) || 0;
-    const actual_amount = Number(formData.get('actual_amount')) || 0;
-    const paid_amount = Number(formData.get('paid_amount')) || 0;
-    const notes = formData.get('notes') as string;
+    
+    if (editingItem) {
+      // Single edit mode: read from FormData
+      const formData = new FormData(e.currentTarget);
+      const category = formData.get('category') as string;
+      const name = formData.get('name') as string;
+      const planned_amount = parseCurrency(formData.get('planned_amount'));
+      const actual_amount = parseCurrency(formData.get('actual_amount'));
+      const paid_amount = parseCurrency(formData.get('paid_amount'));
+      const notes = formData.get('notes') as string;
 
-    if (!name.trim()) {
-      showToast('Vui lòng nhập tên chi phí');
-      return;
-    }
+      if (!name.trim()) {
+        showToast('Vui lòng nhập tên chi phí');
+        return;
+      }
 
-    if (isOfflineMode) {
-      let updated: Expense[];
-      if (editingItem) {
-        updated = expenses.map(item => item.id === editingItem.id ? { ...item, category, name, planned_amount, actual_amount, paid_amount, notes } : item);
+      if (isOfflineMode) {
+        const updated = expenses.map(item => item.id === editingItem.id ? { ...item, category, name, planned_amount, actual_amount, paid_amount, notes } : item);
+        setExpenses(updated);
+        syncOfflineStorage(updated);
         showToast('Cập nhật chi phí thành công');
       } else {
-        const newItem: Expense = { id: 'exp-' + Date.now(), category, name, planned_amount, actual_amount, paid_amount, notes };
-        updated = [newItem, ...expenses];
-        showToast('Thêm chi phí thành công');
-      }
-      setExpenses(updated);
-      syncOfflineStorage(updated);
-    } else {
-      try {
-        if (editingItem) {
+        try {
           const { error } = await supabase.from('expenses').update({ category, name, planned_amount, actual_amount, paid_amount, notes }).eq('id', editingItem.id);
           if (error) throw error;
           showToast('Cập nhật chi phí thành công');
-        } else {
-          const { error } = await supabase.from('expenses').insert([{ category, name, planned_amount, actual_amount, paid_amount, notes }]);
-          if (error) throw error;
-          showToast('Thêm chi phí thành công');
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
         }
-        loadData();
-      } catch (err: any) {
-        showToast('Lỗi: ' + err.message);
+      }
+    } else {
+      // Bulk create mode: read from bulkItems state
+      for (const item of bulkItems) {
+        if (!item.name.trim()) {
+          showToast('Vui lòng nhập tên chi phí cho tất cả các dòng');
+          return;
+        }
+      }
+
+      if (isOfflineMode) {
+        const newItems: Expense[] = bulkItems.map((item, idx) => ({
+          id: 'exp-' + (Date.now() + idx),
+          category: item.category,
+          name: item.name,
+          planned_amount: parseCurrency(item.planned_amount),
+          actual_amount: parseCurrency(item.actual_amount),
+          paid_amount: parseCurrency(item.paid_amount),
+          notes: item.notes
+        }));
+        const updated = [...newItems, ...expenses];
+        setExpenses(updated);
+        syncOfflineStorage(updated);
+        showToast(`Đã thêm ${newItems.length} chi phí thành công`);
+      } else {
+        try {
+          const newItems = bulkItems.map(item => ({
+            category: item.category,
+            name: item.name,
+            planned_amount: parseCurrency(item.planned_amount),
+            actual_amount: parseCurrency(item.actual_amount),
+            paid_amount: parseCurrency(item.paid_amount),
+            notes: item.notes
+          }));
+          const { error } = await supabase.from('expenses').insert(newItems);
+          if (error) throw error;
+          showToast(`Đã thêm ${newItems.length} chi phí thành open`);
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
+        }
       }
     }
     setShowModal(null);
@@ -377,45 +695,73 @@ export default function WeddingPlanner() {
   // Income CRUD
   const handleSaveIncome = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const source = formData.get('source') as string;
-    const name = formData.get('name') as string;
-    const amount = Number(formData.get('amount')) || 0;
-    const notes = formData.get('notes') as string;
+    
+    if (editingItem) {
+      const formData = new FormData(e.currentTarget);
+      const source = formData.get('source') as string;
+      const name = formData.get('name') as string;
+      const amount = parseCurrency(formData.get('amount'));
+      const notes = formData.get('notes') as string;
 
-    if (!name.trim()) {
-      showToast('Vui lòng nhập nguồn thu');
-      return;
-    }
+      if (!name.trim()) {
+        showToast('Vui lòng nhập nguồn thu');
+        return;
+      }
 
-    if (isOfflineMode) {
-      let updated: Income[];
-      if (editingItem) {
-        updated = income.map(item => item.id === editingItem.id ? { ...item, source, name, amount, notes } : item);
+      if (isOfflineMode) {
+        const updated = income.map(item => item.id === editingItem.id ? { ...item, source, name, amount, notes } : item);
+        setIncome(updated);
+        syncOfflineStorage(undefined, updated);
         showToast('Cập nhật khoản thu thành công');
       } else {
-        const newItem: Income = { id: 'inc-' + Date.now(), source, name, amount, notes };
-        updated = [newItem, ...income];
-        showToast('Thêm khoản thu thành công');
-      }
-      setIncome(updated);
-      syncOfflineStorage(undefined, updated);
-    } else {
-      try {
-        if (editingItem) {
+        try {
           const { error } = await supabase.from('income').update({ source, name, amount, notes }).eq('id', editingItem.id);
           if (error) throw error;
           showToast('Cập nhật khoản thu thành công');
-        } else {
-          const { error } = await supabase.from('income').insert([{ source, name, amount, notes }]);
-          if (error) throw error;
-          showToast('Thêm khoản thu thành công');
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
         }
-        loadData();
-      } catch (err: any) {
-        showToast('Lỗi: ' + err.message);
+      }
+    } else {
+      // Bulk create mode
+      for (const item of bulkItems) {
+        if (!item.name.trim()) {
+          showToast('Vui lòng nhập nguồn thu cho tất cả các dòng');
+          return;
+        }
+      }
+
+      if (isOfflineMode) {
+        const newItems: Income[] = bulkItems.map((item, idx) => ({
+          id: 'inc-' + (Date.now() + idx),
+          source: item.source,
+          name: item.name,
+          amount: parseCurrency(item.amount),
+          notes: item.notes
+        }));
+        const updated = [...newItems, ...income];
+        setIncome(updated);
+        syncOfflineStorage(undefined, updated);
+        showToast(`Đã thêm ${newItems.length} khoản thu thành công`);
+      } else {
+        try {
+          const newItems = bulkItems.map(item => ({
+            source: item.source,
+            name: item.name,
+            amount: parseCurrency(item.amount),
+            notes: item.notes
+          }));
+          const { error } = await supabase.from('income').insert(newItems);
+          if (error) throw error;
+          showToast(`Đã thêm ${newItems.length} khoản thu thành công`);
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
+        }
       }
     }
+
     setShowModal(null);
     setEditingItem(null);
   };
@@ -443,49 +789,85 @@ export default function WeddingPlanner() {
   // Guests CRUD
   const handleSaveGuest = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get('name') as string;
-    const side = formData.get('side') as 'groom' | 'bride';
-    const group_name = formData.get('group_name') as string;
-    const phone = formData.get('phone') as string;
-    const status = formData.get('status') as any;
-    const rsvp_count = Number(formData.get('rsvp_count')) || 0;
-    const gift_amount = Number(formData.get('gift_amount')) || 0;
-    const notes = formData.get('notes') as string;
+    
+    if (editingItem) {
+      const formData = new FormData(e.currentTarget);
+      const name = formData.get('name') as string;
+      const side = formData.get('side') as 'groom' | 'bride';
+      const group_name = formData.get('group_name') as string;
+      const phone = formData.get('phone') as string;
+      const status = formData.get('status') as any;
+      const rsvp_count = Number(formData.get('rsvp_count')) || 0;
+      const gift_amount = parseCurrency(formData.get('gift_amount'));
+      const notes = formData.get('notes') as string;
 
-    if (!name.trim()) {
-      showToast('Vui lòng nhập tên khách mời');
-      return;
-    }
+      if (!name.trim()) {
+        showToast('Vui lòng nhập tên khách mời');
+        return;
+      }
 
-    if (isOfflineMode) {
-      let updated: Guest[];
-      if (editingItem) {
-        updated = guests.map(item => item.id === editingItem.id ? { ...item, name, side, group_name, phone, status, rsvp_count, gift_amount, notes } : item);
+      if (isOfflineMode) {
+        const updated = guests.map(item => item.id === editingItem.id ? { ...item, name, side, group_name, phone, status, rsvp_count, gift_amount, notes } : item);
+        setGuests(updated);
+        syncOfflineStorage(undefined, undefined, updated);
         showToast('Cập nhật khách mời thành công');
       } else {
-        const newItem: Guest = { id: 'gst-' + Date.now(), name, side, group_name, phone, status, rsvp_count, gift_amount, notes };
-        updated = [newItem, ...guests];
-        showToast('Thêm khách mời thành công');
-      }
-      setGuests(updated);
-      syncOfflineStorage(undefined, undefined, updated);
-    } else {
-      try {
-        if (editingItem) {
+        try {
           const { error } = await supabase.from('guests').update({ name, side, group_name, phone, status, rsvp_count, gift_amount, notes }).eq('id', editingItem.id);
           if (error) throw error;
           showToast('Cập nhật khách mời thành công');
-        } else {
-          const { error } = await supabase.from('guests').insert([{ name, side, group_name, phone, status, rsvp_count, gift_amount, notes }]);
-          if (error) throw error;
-          showToast('Thêm khách mời thành công');
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
         }
-        loadData();
-      } catch (err: any) {
-        showToast('Lỗi: ' + err.message);
+      }
+    } else {
+      // Bulk create mode
+      for (const item of bulkItems) {
+        if (!item.name.trim()) {
+          showToast('Vui lòng nhập họ tên khách mời');
+          return;
+        }
+      }
+
+      if (isOfflineMode) {
+        const newItems: Guest[] = bulkItems.map((item, idx) => ({
+          id: 'gst-' + (Date.now() + idx),
+          name: item.name,
+          side: item.side,
+          group_name: item.group_name,
+          phone: item.phone,
+          status: item.status,
+          rsvp_count: Number(item.rsvp_count) || 0,
+          gift_amount: parseCurrency(item.gift_amount),
+          notes: item.notes
+        }));
+        const updated = [...newItems, ...guests];
+        setGuests(updated);
+        syncOfflineStorage(undefined, undefined, updated);
+        showToast(`Đã thêm ${newItems.length} khách mời thành công`);
+      } else {
+        try {
+          const newItems = bulkItems.map(item => ({
+            name: item.name,
+            side: item.side,
+            group_name: item.group_name,
+            phone: item.phone,
+            status: item.status,
+            rsvp_count: Number(item.rsvp_count) || 0,
+            gift_amount: parseCurrency(item.gift_amount),
+            notes: item.notes
+          }));
+          const { error } = await supabase.from('guests').insert(newItems);
+          if (error) throw error;
+          showToast(`Đã thêm ${newItems.length} khách mời thành công`);
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
+        }
       }
     }
+
     setShowModal(null);
     setEditingItem(null);
   };
@@ -513,46 +895,78 @@ export default function WeddingPlanner() {
   // Checklist CRUD
   const handleSaveChecklist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const task = formData.get('task') as string;
-    const category = formData.get('category') as string;
-    const due_date = formData.get('due_date') as string;
-    const assigned_to = formData.get('assigned_to') as string;
-    const notes = formData.get('notes') as string;
+    
+    if (editingItem) {
+      const formData = new FormData(e.currentTarget);
+      const task = formData.get('task') as string;
+      const category = formData.get('category') as string;
+      const due_date = formData.get('due_date') as string;
+      const assigned_to = formData.get('assigned_to') as string;
+      const notes = formData.get('notes') as string;
 
-    if (!task.trim()) {
-      showToast('Vui lòng nhập tên công việc');
-      return;
-    }
+      if (!task.trim()) {
+        showToast('Vui lòng nhập tên công việc');
+        return;
+      }
 
-    if (isOfflineMode) {
-      let updated: ChecklistItem[];
-      if (editingItem) {
-        updated = checklist.map(item => item.id === editingItem.id ? { ...item, task, category, due_date, assigned_to, notes } : item);
+      if (isOfflineMode) {
+        const updated = checklist.map(item => item.id === editingItem.id ? { ...item, task, category, due_date, assigned_to, notes } : item);
+        setChecklist(updated);
+        syncOfflineStorage(undefined, undefined, undefined, updated);
         showToast('Cập nhật công việc thành công');
       } else {
-        const newItem: ChecklistItem = { id: 'chk-' + Date.now(), task, category, due_date, is_completed: false, assigned_to, notes };
-        updated = [...checklist, newItem];
-        showToast('Thêm công việc thành công');
-      }
-      setChecklist(updated);
-      syncOfflineStorage(undefined, undefined, undefined, updated);
-    } else {
-      try {
-        if (editingItem) {
+        try {
           const { error } = await supabase.from('checklist').update({ task, category, due_date, assigned_to, notes }).eq('id', editingItem.id);
           if (error) throw error;
           showToast('Cập nhật công việc thành công');
-        } else {
-          const { error } = await supabase.from('checklist').insert([{ task, category, due_date, is_completed: false, assigned_to, notes }]);
-          if (error) throw error;
-          showToast('Thêm công việc thành công');
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
         }
-        loadData();
-      } catch (err: any) {
-        showToast('Lỗi: ' + err.message);
+      }
+    } else {
+      // Bulk create mode
+      for (const item of bulkItems) {
+        if (!item.task.trim()) {
+          showToast('Vui lòng nhập tên công việc cưới');
+          return;
+        }
+      }
+
+      if (isOfflineMode) {
+        const newItems: ChecklistItem[] = bulkItems.map((item, idx) => ({
+          id: 'chk-' + (Date.now() + idx),
+          task: item.task,
+          category: item.category,
+          due_date: item.due_date,
+          is_completed: false,
+          assigned_to: item.assigned_to,
+          notes: item.notes
+        }));
+        const updated = [...checklist, ...newItems];
+        setChecklist(updated);
+        syncOfflineStorage(undefined, undefined, undefined, updated);
+        showToast(`Đã thêm ${newItems.length} công việc cưới thành công`);
+      } else {
+        try {
+          const newItems = bulkItems.map(item => ({
+            task: item.task,
+            category: item.category,
+            due_date: item.due_date,
+            is_completed: false,
+            assigned_to: item.assigned_to,
+            notes: item.notes
+          }));
+          const { error } = await supabase.from('checklist').insert(newItems);
+          if (error) throw error;
+          showToast(`Đã thêm ${newItems.length} công việc cưới thành công`);
+          loadData();
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message);
+        }
       }
     }
+
     setShowModal(null);
     setEditingItem(null);
   };
@@ -599,17 +1013,46 @@ export default function WeddingPlanner() {
   // Memoized Filtered Lists
   // ----------------------------------------------------
   const filteredExpenses = useMemo(() => {
-    if (expenseFilter === 'All') return expenses;
-    return expenses.filter(item => item.category === expenseFilter);
-  }, [expenses, expenseFilter]);
+    const list = expenses.filter(item => {
+      const matchesCategory = expenseFilter.includes('All') || expenseFilter.includes(item.category);
+      const matchesSearch = !expenseSearch || 
+        item.name.toLowerCase().includes(expenseSearch.toLowerCase()) || 
+        (item.notes && item.notes.toLowerCase().includes(expenseSearch.toLowerCase()));
+      return matchesCategory && matchesSearch;
+    });
+
+    if (!expenseSort) return list;
+    const { key, direction } = expenseSort;
+    return [...list].sort((a, b) => {
+      let valA: any = (a as any)[key];
+      let valB: any = (b as any)[key];
+      if (key === 'remaining') {
+        valA = (a.actual_amount || 0) - (a.paid_amount || 0);
+        valB = (b.actual_amount || 0) - (b.paid_amount || 0);
+      }
+      if (typeof valA === 'string') {
+        return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return direction === 'asc' ? (valA || 0) - (valB || 0) : (valB || 0) - (valA || 0);
+    });
+  }, [expenses, expenseFilter, expenseSearch, expenseSort]);
 
   const filteredIncome = useMemo(() => {
-    if (incomeFilter === 'All') return income;
-    return income.filter(item => item.source === incomeFilter);
-  }, [income, incomeFilter]);
+    const list = incomeFilter === 'All' ? income : income.filter(item => item.source === incomeFilter);
+    if (!incomeSort) return list;
+    const { key, direction } = incomeSort;
+    return [...list].sort((a, b) => {
+      const valA = (a as any)[key];
+      const valB = (b as any)[key];
+      if (typeof valA === 'string') {
+        return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return direction === 'asc' ? (valA || 0) - (valB || 0) : (valB || 0) - (valA || 0);
+    });
+  }, [income, incomeFilter, incomeSort]);
 
   const filteredGuests = useMemo(() => {
-    return guests.filter(guest => {
+    const list = guests.filter(guest => {
       const matchesSearch = guest.name.toLowerCase().includes(guestSearch.toLowerCase()) || 
                             (guest.phone && guest.phone.includes(guestSearch)) || 
                             (guest.group_name && guest.group_name.toLowerCase().includes(guestSearch.toLowerCase()));
@@ -617,24 +1060,46 @@ export default function WeddingPlanner() {
       const matchesStatus = guestStatusFilter === 'All' || guest.status === guestStatusFilter;
       return matchesSearch && matchesSide && matchesStatus;
     });
-  }, [guests, guestSearch, guestSideFilter, guestStatusFilter]);
+
+    if (!guestSort) return list;
+    const { key, direction } = guestSort;
+    return [...list].sort((a, b) => {
+      const valA = (a as any)[key];
+      const valB = (b as any)[key];
+      if (typeof valA === 'string') {
+        return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return direction === 'asc' ? (valA || 0) - (valB || 0) : (valB || 0) - (valA || 0);
+    });
+  }, [guests, guestSearch, guestSideFilter, guestStatusFilter, guestSort]);
 
   const filteredChecklist = useMemo(() => {
     if (checklistFilter === 'All') return checklist;
     return checklist.filter(item => item.category === checklistFilter);
   }, [checklist, checklistFilter]);
 
-  // Unique lists for filtering dropdowns
-  const categories = ['Tiệc cưới', 'Trang phục', 'Trang trí', 'Mâm quả', 'Quay phim/Chụp ảnh', 'Khác'];
-  const incomeSources = ['Bố mẹ chú rể', 'Bố mẹ cô dâu', 'Tự túc', 'Khác'];
+  // Unique lists for filtering dropdowns from configuration
+  const categories = config.expenseCategories;
+  const incomeSources = config.incomeSources;
   const guestGroups = useMemo(() => {
-    const groups = new Set(guests.map(g => g.group_name));
+    const groups = new Set([
+      ...config.defaultGuestGroups,
+      ...guests.map(g => g.group_name)
+    ]);
     return Array.from(groups).filter(Boolean);
-  }, [guests]);
-  const checklistCategories = ['Trước ngày cưới', 'Trong ngày cưới', 'Sau ngày cưới'];
+  }, [guests, config.defaultGuestGroups]);
+  const checklistCategories = config.checklistCategories;
 
   return (
     <div className="budgetApp">
+      <style>{`
+        :root {
+          --background: ${config.bgColor || DEFAULT_CONFIG.bgColor} !important;
+          --foreground: ${config.textColor || DEFAULT_CONFIG.textColor} !important;
+          --card-foreground: ${config.textColor || DEFAULT_CONFIG.textColor} !important;
+        }
+      `}</style>
+
       {/* Sidebar Navigation */}
       <aside className="sidebar">
         <div className="logoArea">
@@ -680,6 +1145,13 @@ export default function WeddingPlanner() {
           >
             <CheckSquare size={18} />
             <span>Checklist</span>
+          </button>
+          <button 
+            className={`navItem ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={18} />
+            <span>Cấu hình</span>
           </button>
         </nav>
 
@@ -774,13 +1246,41 @@ export default function WeddingPlanner() {
                 <div className="headerSection">
                   <div>
                     <h2 className="pageTitle">Kế hoạch cưới của Khánh & Linh</h2>
-                    <p style={{ color: 'var(--accent-muted)', fontSize: '0.9rem' }}>Tổng quan chi phí, khách mời và công việc cưới</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ color: 'var(--accent-muted)', fontSize: '0.9rem' }}>Ngày cưới: </span>
+                      <div className="dateWrapper" style={{ width: 'auto', display: 'inline-flex' }}>
+                        <input 
+                          type="date" 
+                          value={config.weddingDate} 
+                          onChange={handleWeddingDateChange}
+                          className="formInput customDateInput"
+                          style={{ padding: '6px 36px 6px 12px', fontSize: '0.85rem', width: '140px', background: 'rgba(255,255,253,0.5)', border: '1px dashed var(--sage-300)' }}
+                        />
+                        <Calendar size={14} className="calendarIcon" style={{ right: '10px' }} />
+                      </div>
+                      {daysRemaining !== null && (
+                        <span style={{ 
+                          background: 'var(--rose-100)', 
+                          color: 'var(--accent-rose)', 
+                          padding: '4px 10px', 
+                          borderRadius: '20px', 
+                          fontSize: '0.8rem', 
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          animation: 'pulse 2s infinite'
+                        }}>
+                          <Heart size={12} fill="var(--accent-rose)" /> {daysRemaining > 0 ? `Còn ${daysRemaining} ngày` : daysRemaining === 0 ? 'Hôm nay là ngày cưới!' : `Đã diễn ra cách đây ${Math.abs(daysRemaining)} ngày`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => setShowModal('expense')} className="btn btnPrimary">
+                    <button onClick={() => handleOpenCreateModal('expense')} className="btn btnPrimary">
                       <Plus size={16} /> Chi phí
                     </button>
-                    <button onClick={() => setShowModal('guest')} className="btn btnSecondary">
+                    <button onClick={() => handleOpenCreateModal('guest')} className="btn btnSecondary">
                       <Plus size={16} /> Khách mời
                     </button>
                   </div>
@@ -954,33 +1454,137 @@ export default function WeddingPlanner() {
                       Tổng thực tế: <strong style={{ color: 'var(--accent-rose)' }}>{formatVND(totals.actualCost)}</strong> (Kế hoạch: {formatVND(totals.plannedCost)})
                     </p>
                   </div>
-                  <button onClick={() => { setEditingItem(null); setShowModal('expense'); }} className="btn btnPrimary">
+                  <button onClick={() => handleOpenCreateModal('expense')} className="btn btnPrimary">
                     <Plus size={16} /> Thêm chi phí
                   </button>
                 </div>
 
-                {/* Filters */}
-                <div className="filtersBar">
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--accent-muted)' }}>
-                    Lọc danh mục:
-                  </span>
-                  <button 
-                    className={`btn ${expenseFilter === 'All' ? 'btnPrimary' : 'btnSecondary'}`} 
-                    onClick={() => setExpenseFilter('All')}
-                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                  >
-                    Tất cả
-                  </button>
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      className={`btn ${expenseFilter === cat ? 'btnPrimary' : 'btnSecondary'}`}
-                      onClick={() => setExpenseFilter(cat)}
-                      style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                {/* Search & Filters */}
+                <div className="sectionCard" style={{ marginBottom: '20px', padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="inputGroup" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-muted)' }}>Tìm kiếm chi phí</label>
+                      <div className="searchWrapper">
+                        <Search size={16} className="searchIcon" />
+                        <input 
+                          type="text" 
+                          placeholder="Tìm tên hạng mục hoặc ghi chú..." 
+                          className="formInput searchInput"
+                          value={expenseSearch}
+                          onChange={(e) => setExpenseSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{ position: 'relative' }} className="customMultiselect">
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-muted)', marginBottom: '8px' }}>
+                        Lọc danh mục (chọn nhiều):
+                      </label>
+                      <button 
+                        type="button" 
+                        className="btn btnSecondary"
+                        onClick={() => setIsCategoryDropdownOpen(prev => !prev)}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          width: '100%', 
+                          minWidth: '220px', 
+                          padding: '10px 14px', 
+                          borderRadius: '8px', 
+                          fontSize: '0.9rem', 
+                          background: 'var(--card-solid)', 
+                          border: '1px solid var(--border)',
+                          textAlign: 'left',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <span style={{ 
+                          textOverflow: 'ellipsis', 
+                          overflow: 'hidden', 
+                          whiteSpace: 'nowrap', 
+                          maxWidth: '240px',
+                          color: 'var(--foreground)'
+                        }}>
+                          {expenseFilter.includes('All') 
+                            ? 'Tất cả danh mục' 
+                            : expenseFilter.join(', ')}
+                        </span>
+                        <Filter size={14} style={{ color: 'var(--accent-moss)', marginLeft: '8px', flexShrink: 0 }} />
+                      </button>
+
+                      {isCategoryDropdownOpen && (
+                        <div style={{ 
+                          position: 'absolute', 
+                          top: '100%', 
+                          left: 0, 
+                          zIndex: 100, 
+                          background: 'var(--card-solid)', 
+                          border: '1px solid var(--border-strong)', 
+                          borderRadius: '8px', 
+                          padding: '8px', 
+                          marginTop: '6px',
+                          boxShadow: 'var(--shadow-md)', 
+                          minWidth: '240px', 
+                          maxHeight: '260px', 
+                          overflowY: 'auto'
+                        }}>
+                          {/* Option: Tất cả */}
+                          <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            padding: '6px 10px', 
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            background: (expenseFilter.includes('All') || expenseFilter.length === categories.length) ? 'var(--sage-100)' : 'transparent',
+                            color: 'var(--foreground)',
+                            marginBottom: '4px',
+                            borderBottom: '1px solid var(--border)'
+                          }}>
+                            <input 
+                              type="checkbox" 
+                              checked={expenseFilter.includes('All') || expenseFilter.length === categories.length}
+                              onChange={() => handleToggleExpenseFilter('All')}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            Tất cả ({categories.length})
+                          </label>
+
+                          {/* Options: Categories */}
+                          {categories.map(cat => {
+                            const isChecked = expenseFilter.includes('All') || expenseFilter.includes(cat);
+                            return (
+                              <label 
+                                key={cat}
+                                style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: '8px', 
+                                  padding: '6px 10px', 
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.85rem',
+                                  background: isChecked ? (config.categoryColors?.[cat]?.bgColor || 'var(--sage-100)') : 'transparent',
+                                  color: isChecked ? (config.categoryColors?.[cat]?.textColor || 'var(--foreground)') : 'var(--foreground)'
+                                }}
+                              >
+                                <input 
+                                  type="checkbox" 
+                                  checked={isChecked}
+                                  onChange={() => handleToggleExpenseFilter(cat)}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                {cat}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Expenses Table */}
@@ -991,12 +1595,12 @@ export default function WeddingPlanner() {
                       <table className="customTable">
                         <thead>
                           <tr>
-                            <th>Hạng mục</th>
-                            <th>Danh mục</th>
-                            <th className="textRight">Dự kiến (đ)</th>
-                            <th className="textRight">Thực tế (đ)</th>
-                            <th className="textRight">Đã trả (đ)</th>
-                            <th className="textRight">Còn lại (đ)</th>
+                            {renderSortHeader('expense', 'name', 'Hạng mục', false, { minWidth: '220px', width: '25%' })}
+                            {renderSortHeader('expense', 'category', 'Danh mục')}
+                            {renderSortHeader('expense', 'planned_amount', 'Dự kiến (đ)', true)}
+                            {renderSortHeader('expense', 'actual_amount', 'Thực tế (đ)', true)}
+                            {renderSortHeader('expense', 'paid_amount', 'Đã trả (đ)', true)}
+                            {renderSortHeader('expense', 'remaining', 'Còn lại (đ)', true)}
                             <th>Ghi chú</th>
                             <th className="textCenter">Thao tác</th>
                           </tr>
@@ -1007,7 +1611,18 @@ export default function WeddingPlanner() {
                             return (
                               <tr key={item.id}>
                                 <td style={{ fontWeight: 600 }}>{item.name}</td>
-                                <td><span className="badge group">{item.category}</span></td>
+                                <td>
+                                  <span 
+                                    className="badge group"
+                                    style={{ 
+                                      background: (config.categoryColors?.[item.category]?.bgColor) || 'var(--sage-100)', 
+                                      color: (config.categoryColors?.[item.category]?.textColor) || 'var(--sage-800)',
+                                      border: 'none'
+                                    }}
+                                  >
+                                    {item.category}
+                                  </span>
+                                </td>
                                 <td className="textRight">{formatVND(item.planned_amount).replace(' ₫', '')}</td>
                                 <td className="textRight" style={{ color: 'var(--accent-rose)', fontWeight: 600 }}>
                                   {formatVND(item.actual_amount).replace(' ₫', '')}
@@ -1057,7 +1672,7 @@ export default function WeddingPlanner() {
                       Tổng ngân quỹ hỗ trợ: <strong style={{ color: 'var(--accent-moss)' }}>{formatVND(totals.income)}</strong> (Tổng cộng gồm mừng cưới: {formatVND(totals.totalBudget)})
                     </p>
                   </div>
-                  <button onClick={() => { setEditingItem(null); setShowModal('income'); }} className="btn btnPrimary">
+                  <button onClick={() => handleOpenCreateModal('income')} className="btn btnPrimary">
                     <Plus size={16} /> Thêm khoản thu
                   </button>
                 </div>
@@ -1094,9 +1709,9 @@ export default function WeddingPlanner() {
                       <table className="customTable">
                         <thead>
                           <tr>
-                            <th>Nội dung</th>
-                            <th>Nguồn đóng góp</th>
-                            <th className="textRight">Số tiền (đ)</th>
+                            {renderSortHeader('income', 'name', 'Nội dung', false, { minWidth: '220px', width: '25%' })}
+                            {renderSortHeader('income', 'source', 'Nguồn đóng góp')}
+                            {renderSortHeader('income', 'amount', 'Số tiền (đ)', true)}
                             <th>Ghi chú</th>
                             <th className="textCenter">Thao tác</th>
                           </tr>
@@ -1105,7 +1720,18 @@ export default function WeddingPlanner() {
                           {filteredIncome.map(item => (
                             <tr key={item.id}>
                               <td style={{ fontWeight: 600 }}>{item.name}</td>
-                              <td><span className="badge group">{item.source}</span></td>
+                              <td>
+                                <span 
+                                  className="badge group"
+                                  style={{ 
+                                    background: (config.incomeSourceColors?.[item.source]?.bgColor) || 'var(--sage-100)', 
+                                    color: (config.incomeSourceColors?.[item.source]?.textColor) || 'var(--sage-800)',
+                                    border: 'none'
+                                  }}
+                                >
+                                  {item.source}
+                                </span>
+                              </td>
                               <td className="textRight" style={{ color: 'var(--accent-moss)', fontWeight: 600 }}>
                                 {formatVND(item.amount).replace(' ₫', '')}
                               </td>
@@ -1147,7 +1773,7 @@ export default function WeddingPlanner() {
                       Tổng: <strong>{guestStats.total} khách</strong> | Tham gia: <strong style={{ color: 'var(--sage-700)' }}>{guestStats.attendingTotalPeople} người</strong> | Tiền mừng nhận được: <strong style={{ color: 'var(--accent-gold)' }}>{formatVND(totals.gifts)}</strong>
                     </p>
                   </div>
-                  <button onClick={() => { setEditingItem(null); setShowModal('guest'); }} className="btn btnPrimary">
+                  <button onClick={() => handleOpenCreateModal('guest')} className="btn btnPrimary">
                     <Plus size={16} /> Thêm khách mời
                   </button>
                 </div>
@@ -1171,30 +1797,30 @@ export default function WeddingPlanner() {
 
                     <div style={{ flex: 1, minWidth: '130px' }} className="inputGroup">
                       <label>Phía gia đình</label>
-                      <select 
-                        className="formSelect" 
+                      <CustomSelect 
                         value={guestSideFilter}
-                        onChange={(e) => setGuestSideFilter(e.target.value)}
-                      >
-                        <option value="All">Tất cả</option>
-                        <option value="groom">Nhà trai</option>
-                        <option value="bride">Nhà gái</option>
-                      </select>
+                        onChange={setGuestSideFilter}
+                        options={[
+                          { label: 'Tất cả', value: 'All' },
+                          { label: 'Nhà trai', value: 'groom' },
+                          { label: 'Nhà gái', value: 'bride' }
+                        ]}
+                      />
                     </div>
 
                     <div style={{ flex: 1, minWidth: '150px' }} className="inputGroup">
                       <label>Trạng thái</label>
-                      <select 
-                        className="formSelect"
+                      <CustomSelect 
                         value={guestStatusFilter}
-                        onChange={(e) => setGuestStatusFilter(e.target.value)}
-                      >
-                        <option value="All">Tất cả</option>
-                        <option value="uninvited">Chưa mời</option>
-                        <option value="invited">Đã mời</option>
-                        <option value="attending">Sẽ tham gia</option>
-                        <option value="declined">Không tham gia</option>
-                      </select>
+                        onChange={setGuestStatusFilter}
+                        options={[
+                          { label: 'Tất cả', value: 'All' },
+                          { label: 'Chưa mời', value: 'uninvited' },
+                          { label: 'Đã mời', value: 'invited' },
+                          { label: 'Sẽ tham gia', value: 'attending' },
+                          { label: 'Không tham gia', value: 'declined' }
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1207,13 +1833,13 @@ export default function WeddingPlanner() {
                       <table className="customTable">
                         <thead>
                           <tr>
-                            <th>Tên khách mời</th>
-                            <th>Bên</th>
-                            <th>Nhóm</th>
+                            {renderSortHeader('guest', 'name', 'Tên khách mời', false, { minWidth: '220px', width: '25%' })}
+                            {renderSortHeader('guest', 'side', 'Bên')}
+                            {renderSortHeader('guest', 'group_name', 'Nhóm')}
                             <th>SĐT</th>
-                            <th>Trạng thái</th>
-                            <th className="textCenter">Đi cùng</th>
-                            <th className="textRight">Tiền mừng (đ)</th>
+                            {renderSortHeader('guest', 'status', 'Trạng thái')}
+                            {renderSortHeader('guest', 'rsvp_count', 'Đi cùng', true)}
+                            {renderSortHeader('guest', 'gift_amount', 'Tiền mừng (đ)', true)}
                             <th>Ghi chú</th>
                             <th className="textCenter">Thao tác</th>
                           </tr>
@@ -1227,7 +1853,18 @@ export default function WeddingPlanner() {
                                   {guest.side === 'groom' ? 'Nhà Trai' : 'Nhà Gái'}
                                 </span>
                               </td>
-                              <td><span className="badge group">{guest.group_name}</span></td>
+                              <td>
+                                <span 
+                                  className="badge group"
+                                  style={{ 
+                                    background: (config.guestGroupColors?.[guest.group_name]?.bgColor) || 'var(--sage-100)', 
+                                    color: (config.guestGroupColors?.[guest.group_name]?.textColor) || 'var(--sage-800)',
+                                    border: 'none'
+                                  }}
+                                >
+                                  {guest.group_name}
+                                </span>
+                              </td>
                               <td style={{ color: 'var(--accent-muted)' }}>{guest.phone || '—'}</td>
                               <td>
                                 <span className={`badge ${guest.status}`}>
@@ -1281,7 +1918,7 @@ export default function WeddingPlanner() {
                       Đã hoàn thành <strong style={{ color: 'var(--accent-moss)' }}>{checklistStats.completed}</strong> trên tổng số <strong>{checklistStats.total}</strong> đầu việc ({checklistStats.percent}%)
                     </p>
                   </div>
-                  <button onClick={() => { setEditingItem(null); setShowModal('checklist'); }} className="btn btnPrimary">
+                  <button onClick={() => handleOpenCreateModal('checklist')} className="btn btnPrimary">
                     <Plus size={16} /> Thêm công việc
                   </button>
                 </div>
@@ -1314,8 +1951,20 @@ export default function WeddingPlanner() {
                 {checklistFilter !== 'All' ? (
                   <div className="checklistColumn">
                     <h3>
-                      <span>{checklistFilter}</span>
-                      <small style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>
+                      <span 
+                        className="badge" 
+                        style={{ 
+                          background: (config.checklistCategoryColors?.[checklistFilter]?.bgColor) || 'var(--sage-100)', 
+                          color: (config.checklistCategoryColors?.[checklistFilter]?.textColor) || 'var(--sage-800)', 
+                          border: 'none', 
+                          padding: '4px 10px', 
+                          borderRadius: '12px',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {checklistFilter}
+                      </span>
+                      <small style={{ fontSize: '0.75rem', fontWeight: 'normal', marginLeft: '6px' }}>
                         ({filteredChecklist.filter(c => c.is_completed).length}/{filteredChecklist.length})
                       </small>
                     </h3>
@@ -1367,8 +2016,20 @@ export default function WeddingPlanner() {
                       return (
                         <div key={cat} className="checklistColumn">
                           <h3>
-                            <span>{cat}</span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--accent-muted)' }}>
+                            <span 
+                              className="badge" 
+                              style={{ 
+                                background: (config.checklistCategoryColors?.[cat]?.bgColor) || 'var(--sage-100)', 
+                                color: (config.checklistCategoryColors?.[cat]?.textColor) || 'var(--sage-800)', 
+                                border: 'none', 
+                                padding: '4px 10px', 
+                                borderRadius: '12px',
+                                fontSize: '0.85rem'
+                              }}
+                            >
+                              {cat}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--accent-muted)', marginLeft: '6px' }}>
                               {completedCatTasks.length}/{catTasks.length}
                             </span>
                           </h3>
@@ -1417,6 +2078,153 @@ export default function WeddingPlanner() {
                 )}
               </div>
             )}
+
+            {/* ------------------------------------------------- */}
+            {/* SETTINGS TAB */}
+            {/* ------------------------------------------------- */}
+            {activeTab === 'settings' && (
+              <div>
+                <div className="headerSection">
+                  <div>
+                    <h2 className="pageTitle">Cấu hình hệ thống</h2>
+                    <p style={{ color: 'var(--accent-muted)', fontSize: '0.9rem' }}>Tùy chỉnh ngày cưới, danh mục chi phí, nguồn thu và các nhóm khách mời mặc định</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                  
+                  {/* Wedding Date Card */}
+                  <div className="sectionCard">
+                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--sage-800)', fontWeight: 600 }}>
+                      <Calendar size={16} /> Ngày cưới & Đếm ngược
+                    </h3>
+                    <div className="inputGroup" style={{ marginTop: '12px' }}>
+                      <label>Ngày cưới chính thức</label>
+                      <div className="dateWrapper">
+                        <input 
+                          type="date" 
+                          value={config.weddingDate} 
+                          onChange={handleWeddingDateChange}
+                          className="formInput customDateInput"
+                        />
+                        <Calendar size={14} className="calendarIcon" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expense Categories Card */}
+                  <div className="sectionCard">
+                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--sage-800)', fontWeight: 600 }}>
+                      <DollarSign size={16} /> Danh mục chi phí cưới
+                    </h3>
+                    <TagConfigList 
+                      tags={config.expenseCategories} 
+                      onUpdate={(newTags) => handleUpdateConfig({ ...config, expenseCategories: newTags })} 
+                      placeholder="Thêm danh mục mới (ví dụ: Trăng mật)" 
+                      colors={config.categoryColors || DEFAULT_CONFIG.categoryColors}
+                      onUpdateColors={(newColors) => handleUpdateConfig({ ...config, categoryColors: newColors })}
+                    />
+                  </div>
+
+                  {/* Income Sources Card */}
+                  <div className="sectionCard">
+                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--sage-800)', fontWeight: 600 }}>
+                      <TrendingUp size={16} /> Nguồn ngân quỹ hỗ trợ
+                    </h3>
+                    <TagConfigList 
+                      tags={config.incomeSources} 
+                      onUpdate={(newTags) => handleUpdateConfig({ ...config, incomeSources: newTags })} 
+                      placeholder="Thêm nguồn hỗ trợ (ví dụ: Anh chị)" 
+                      colors={config.incomeSourceColors || DEFAULT_CONFIG.incomeSourceColors}
+                      onUpdateColors={(newColors) => handleUpdateConfig({ ...config, incomeSourceColors: newColors })}
+                    />
+                  </div>
+
+                  {/* Guest Groups Card */}
+                  <div className="sectionCard">
+                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--sage-800)', fontWeight: 600 }}>
+                      <Users size={16} /> Nhóm khách mời mặc định
+                    </h3>
+                    <TagConfigList 
+                      tags={config.defaultGuestGroups} 
+                      onUpdate={(newTags) => handleUpdateConfig({ ...config, defaultGuestGroups: newTags })} 
+                      placeholder="Thêm nhóm mới (ví dụ: Bạn cấp 2)" 
+                      colors={config.guestGroupColors || DEFAULT_CONFIG.guestGroupColors}
+                      onUpdateColors={(newColors) => handleUpdateConfig({ ...config, guestGroupColors: newColors })}
+                    />
+                  </div>
+
+                  {/* Checklist Categories Card */}
+                  <div className="sectionCard">
+                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--sage-800)', fontWeight: 600 }}>
+                      <CheckSquare size={16} /> Giai đoạn Checklist
+                    </h3>
+                    <TagConfigList 
+                      tags={config.checklistCategories} 
+                      onUpdate={(newTags) => handleUpdateConfig({ ...config, checklistCategories: newTags })} 
+                      placeholder="Thêm giai đoạn mới (ví dụ: Tuần lễ cưới)" 
+                      colors={config.checklistCategoryColors || DEFAULT_CONFIG.checklistCategoryColors}
+                      onUpdateColors={(newColors) => handleUpdateConfig({ ...config, checklistCategoryColors: newColors })}
+                    />
+                  </div>
+
+                  {/* Theme Colors Card */}
+                  <div className="sectionCard">
+                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--sage-800)', fontWeight: 600 }}>
+                      <Settings size={16} /> Màu sắc giao diện (Theme)
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="inputGroup">
+                        <label>Màu nền (Background)</label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input 
+                            type="color" 
+                            value={config.bgColor || DEFAULT_CONFIG.bgColor} 
+                            onChange={(e) => handleUpdateConfig({ ...config, bgColor: e.target.value })}
+                            style={{ width: '40px', height: '36px', border: '1px solid var(--border)', padding: 0, cursor: 'pointer', borderRadius: '4px' }}
+                          />
+                          <input 
+                            type="text" 
+                            value={config.bgColor || DEFAULT_CONFIG.bgColor} 
+                            onChange={(e) => handleUpdateConfig({ ...config, bgColor: e.target.value })}
+                            className="formInput"
+                            style={{ flex: 1, textTransform: 'uppercase' }}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="inputGroup">
+                        <label>Màu chữ (Text Color)</label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input 
+                            type="color" 
+                            value={config.textColor || DEFAULT_CONFIG.textColor} 
+                            onChange={(e) => handleUpdateConfig({ ...config, textColor: e.target.value })}
+                            style={{ width: '40px', height: '36px', border: '1px solid var(--border)', padding: 0, cursor: 'pointer', borderRadius: '4px' }}
+                          />
+                          <input 
+                            type="text" 
+                            value={config.textColor || DEFAULT_CONFIG.textColor} 
+                            onChange={(e) => handleUpdateConfig({ ...config, textColor: e.target.value })}
+                            className="formInput"
+                            style={{ flex: 1, textTransform: 'uppercase' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => handleUpdateConfig({ ...config, bgColor: DEFAULT_CONFIG.bgColor, textColor: DEFAULT_CONFIG.textColor })}
+                      className="btn btnSecondary"
+                      style={{ marginTop: '12px', width: '100%', fontSize: '0.8rem' }}
+                    >
+                      Khôi phục màu mặc định
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
@@ -1434,50 +2242,175 @@ export default function WeddingPlanner() {
               <button className="closeButton" onClick={() => setShowModal(null)}>&times;</button>
             </div>
             <form onSubmit={handleSaveExpense}>
-              <div className="modalBody">
-                <div className="inputGroup">
-                  <label>Tên chi phí / Hạng mục</label>
-                  <input 
-                    type="text" name="name" required placeholder="Ví dụ: Thuê cổng hoa gia tiên" 
-                    className="formInput" defaultValue={editingItem?.name || ''} 
-                  />
-                </div>
-                <div className="inputGroup">
-                  <label>Danh mục</label>
-                  <select name="category" className="formSelect" defaultValue={editingItem?.category || 'Tiệc cưới'}>
-                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="inputGroup">
-                    <label>Chi phí dự kiến (đ)</label>
-                    <input 
-                      type="number" name="planned_amount" required min="0" placeholder="0"
-                      className="formInput" defaultValue={editingItem?.planned_amount || 0} 
-                    />
-                  </div>
-                  <div className="inputGroup">
-                    <label>Chi phí thực tế (đ)</label>
-                    <input 
-                      type="number" name="actual_amount" required min="0" placeholder="0"
-                      className="formInput" defaultValue={editingItem?.actual_amount || 0} 
-                    />
-                  </div>
-                </div>
-                <div className="inputGroup">
-                  <label>Đã thanh toán trước (đ)</label>
-                  <input 
-                    type="number" name="paid_amount" required min="0" placeholder="0"
-                    className="formInput" defaultValue={editingItem?.paid_amount || 0} 
-                  />
-                </div>
-                <div className="inputGroup">
-                  <label>Ghi chú thêm</label>
-                  <textarea 
-                    name="notes" placeholder="Chi tiết hợp đồng, thông tin liên hệ..." rows={3}
-                    className="formInput" defaultValue={editingItem?.notes || ''}
-                  ></textarea>
-                </div>
+              <div className="modalBody" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                {editingItem ? (
+                  /* Single item edit mode */
+                  <>
+                    <div className="inputGroup">
+                      <label>Tên chi phí / Hạng mục</label>
+                      <input 
+                        type="text" name="name" required placeholder="Ví dụ: Thuê cổng hoa gia tiên" 
+                        className="formInput" defaultValue={editingItem?.name || ''} 
+                      />
+                    </div>
+                    <div className="inputGroup">
+                      <label>Danh mục</label>
+                      <CustomSelect 
+                        name="category" 
+                        defaultValue={editingItem?.category || 'Tiệc cưới'} 
+                        options={categories}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="inputGroup">
+                        <label>Chi phí dự kiến (đ)</label>
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          name="planned_amount" 
+                          required 
+                          placeholder="0"
+                          className="formInput" 
+                          defaultValue={formatCurrency(editingItem?.planned_amount ?? 0)}
+                          onChange={handleNumberInputChange}
+                        />
+                      </div>
+                      <div className="inputGroup">
+                        <label>Chi phí thực tế (đ)</label>
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          name="actual_amount" 
+                          required 
+                          placeholder="0"
+                          className="formInput" 
+                          defaultValue={formatCurrency(editingItem?.actual_amount ?? 0)}
+                          onChange={handleNumberInputChange}
+                        />
+                      </div>
+                    </div>
+                    <div className="inputGroup">
+                      <label>Đã thanh toán trước (đ)</label>
+                      <input 
+                        type="text" 
+                        inputMode="numeric"
+                        name="paid_amount" 
+                        required 
+                        placeholder="0"
+                        className="formInput" 
+                        defaultValue={formatCurrency(editingItem?.paid_amount ?? 0)}
+                        onChange={handleNumberInputChange}
+                      />
+                    </div>
+                    <div className="inputGroup">
+                      <label>Ghi chú thêm</label>
+                      <textarea 
+                        name="notes" placeholder="Chi tiết hợp đồng, thông tin liên hệ..." rows={3}
+                        className="formInput" defaultValue={editingItem?.notes || ''}
+                      ></textarea>
+                    </div>
+                  </>
+                ) : (
+                  /* Bulk items create mode */
+                  <>
+                    {bulkItems.map((item, idx) => (
+                      <div key={item.id} className="bulkItemBlock">
+                        <div className="bulkItemHeader">
+                          <span className="bulkItemTitle">Hạng mục #{idx + 1}</span>
+                          {bulkItems.length > 1 && (
+                            <button 
+                              type="button" 
+                              onClick={() => setBulkItems(prev => prev.filter(row => row.id !== item.id))}
+                              className="removeRowBtn"
+                              title="Xóa dòng này"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="inputGroup">
+                          <label>Tên chi phí / Hạng mục</label>
+                          <input 
+                            type="text" 
+                            value={item.name} 
+                            required 
+                            placeholder="Ví dụ: Thuê cổng hoa gia tiên" 
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div className="inputGroup">
+                          <label>Danh mục</label>
+                          <CustomSelect 
+                            value={item.category}
+                            onChange={(val) => handleBulkItemChange(idx, 'category', val)}
+                            options={categories}
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div className="inputGroup">
+                            <label>Chi phí dự kiến (đ)</label>
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              value={item.planned_amount} 
+                              placeholder="0"
+                              className="formInput" 
+                              onChange={(e) => {
+                                handleNumberInputChange(e);
+                                handleBulkItemChange(idx, 'planned_amount', e.target.value);
+                              }}
+                            />
+                          </div>
+                          <div className="inputGroup">
+                            <label>Chi phí thực tế (đ)</label>
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              value={item.actual_amount} 
+                              placeholder="0"
+                              className="formInput" 
+                              onChange={(e) => {
+                                handleNumberInputChange(e);
+                                handleBulkItemChange(idx, 'actual_amount', e.target.value);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="inputGroup">
+                          <label>Đã thanh toán trước (đ)</label>
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            value={item.paid_amount} 
+                            placeholder="0"
+                            className="formInput" 
+                            onChange={(e) => {
+                              handleNumberInputChange(e);
+                              handleBulkItemChange(idx, 'paid_amount', e.target.value);
+                            }}
+                          />
+                        </div>
+                        <div className="inputGroup">
+                          <label>Ghi chú thêm</label>
+                          <textarea 
+                            value={item.notes} 
+                            placeholder="Chi tiết hợp đồng, thông tin liên hệ..." rows={2}
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'notes', e.target.value)}
+                          ></textarea>
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      type="button" 
+                      onClick={() => setBulkItems(prev => [...prev, getInitialItem('expense')])}
+                      className="addBulkRowBtn"
+                    >
+                      <Plus size={16} /> Thêm dòng mới
+                    </button>
+                  </>
+                )}
               </div>
               <div className="modalFooter">
                 <button type="button" onClick={() => setShowModal(null)} className="btn btnSecondary">Hủy</button>
@@ -1497,34 +2430,118 @@ export default function WeddingPlanner() {
               <button className="closeButton" onClick={() => setShowModal(null)}>&times;</button>
             </div>
             <form onSubmit={handleSaveIncome}>
-              <div className="modalBody">
-                <div className="inputGroup">
-                  <label>Nội dung đóng góp / Tên khoản thu</label>
-                  <input 
-                    type="text" name="name" required placeholder="Ví dụ: Bố mẹ chú rể cho tiền tiệc" 
-                    className="formInput" defaultValue={editingItem?.name || ''} 
-                  />
-                </div>
-                <div className="inputGroup">
-                  <label>Nguồn hỗ trợ</label>
-                  <select name="source" className="formSelect" defaultValue={editingItem?.source || 'Bố mẹ chú rể'}>
-                    {incomeSources.map(src => <option key={src} value={src}>{src}</option>)}
-                  </select>
-                </div>
-                <div className="inputGroup">
-                  <label>Số tiền đóng góp (đ)</label>
-                  <input 
-                    type="number" name="amount" required min="0" placeholder="0"
-                    className="formInput" defaultValue={editingItem?.amount || 0} 
-                  />
-                </div>
-                <div className="inputGroup">
-                  <label>Ghi chú</label>
-                  <textarea 
-                    name="notes" placeholder="Ghi chú chi tiết..." rows={3}
-                    className="formInput" defaultValue={editingItem?.notes || ''}
-                  ></textarea>
-                </div>
+              <div className="modalBody" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                {editingItem ? (
+                  /* Single item edit mode */
+                  <>
+                    <div className="inputGroup">
+                      <label>Nội dung đóng góp / Tên khoản thu</label>
+                      <input 
+                        type="text" name="name" required placeholder="Ví dụ: Bố mẹ chú rể cho tiền tiệc" 
+                        className="formInput" defaultValue={editingItem?.name || ''} 
+                      />
+                    </div>
+                    <div className="inputGroup">
+                      <label>Nguồn hỗ trợ</label>
+                      <CustomSelect 
+                        name="source" 
+                        defaultValue={editingItem?.source || 'Bố mẹ chú rể'} 
+                        options={incomeSources}
+                      />
+                    </div>
+                    <div className="inputGroup">
+                      <label>Số tiền đóng góp (đ)</label>
+                      <input 
+                        type="text" 
+                        inputMode="numeric"
+                        name="amount" 
+                        required 
+                        placeholder="0"
+                        className="formInput" 
+                        defaultValue={formatCurrency(editingItem?.amount ?? 0)}
+                        onChange={handleNumberInputChange}
+                      />
+                    </div>
+                    <div className="inputGroup">
+                      <label>Ghi chú</label>
+                      <textarea 
+                        name="notes" placeholder="Ghi chú chi tiết..." rows={3}
+                        className="formInput" defaultValue={editingItem?.notes || ''}
+                      ></textarea>
+                    </div>
+                  </>
+                ) : (
+                  /* Bulk items create mode */
+                  <>
+                    {bulkItems.map((item, idx) => (
+                      <div key={item.id} className="bulkItemBlock">
+                        <div className="bulkItemHeader">
+                          <span className="bulkItemTitle">Khoản thu #{idx + 1}</span>
+                          {bulkItems.length > 1 && (
+                            <button 
+                              type="button" 
+                              onClick={() => setBulkItems(prev => prev.filter(row => row.id !== item.id))}
+                              className="removeRowBtn"
+                              title="Xóa dòng này"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="inputGroup">
+                          <label>Nội dung đóng góp / Tên khoản thu</label>
+                          <input 
+                            type="text" 
+                            value={item.name} 
+                            required 
+                            placeholder="Ví dụ: Bố mẹ chú rể cho tiền tiệc" 
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div className="inputGroup">
+                          <label>Nguồn hỗ trợ</label>
+                          <CustomSelect 
+                            value={item.source}
+                            onChange={(val) => handleBulkItemChange(idx, 'source', val)}
+                            options={incomeSources}
+                          />
+                        </div>
+                        <div className="inputGroup">
+                          <label>Số tiền đóng góp (đ)</label>
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            value={item.amount} 
+                            required
+                            placeholder="0"
+                            className="formInput" 
+                            onChange={(e) => {
+                              handleNumberInputChange(e);
+                              handleBulkItemChange(idx, 'amount', e.target.value);
+                            }}
+                          />
+                        </div>
+                        <div className="inputGroup">
+                          <label>Ghi chú</label>
+                          <textarea 
+                            value={item.notes} 
+                            placeholder="Ghi chú chi tiết..." rows={2}
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'notes', e.target.value)}
+                          ></textarea>
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      type="button" 
+                      onClick={() => setBulkItems(prev => [...prev, getInitialItem('income')])}
+                      className="addBulkRowBtn"
+                    >
+                      <Plus size={16} /> Thêm dòng mới
+                    </button>
+                  </>
+                )}
               </div>
               <div className="modalFooter">
                 <button type="button" onClick={() => setShowModal(null)} className="btn btnSecondary">Hủy</button>
@@ -1545,77 +2562,219 @@ export default function WeddingPlanner() {
             </div>
             <form onSubmit={handleSaveGuest}>
               <div className="modalBody" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                <div className="inputGroup">
-                  <label>Họ & Tên khách mời</label>
-                  <input 
-                    type="text" name="name" required placeholder="Ví dụ: Nguyễn Văn A" 
-                    className="formInput" defaultValue={editingItem?.name || ''} 
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="inputGroup">
-                    <label>Phía gia đình</label>
-                    <select name="side" className="formSelect" defaultValue={editingItem?.side || 'groom'}>
-                      <option value="groom">Nhà trai</option>
-                      <option value="bride">Nhà gái</option>
-                    </select>
-                  </div>
-                  <div className="inputGroup">
-                    <label>Nhóm khách</label>
-                    <input 
-                      type="text" name="group_name" required placeholder="Ví dụ: Bạn đại học, Họ hàng..." 
-                      className="formInput" defaultValue={editingItem?.group_name || 'Bạn bè'} 
-                      list="guest-group-list"
-                    />
-                    <datalist id="guest-group-list">
-                      {guestGroups.map(grp => <option key={grp} value={grp} />)}
-                      <option value="Họ hàng" />
-                      <option value="Đồng nghiệp" />
-                      <option value="Bạn cấp 3" />
-                    </datalist>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
-                  <div className="inputGroup">
-                    <label>Số điện thoại</label>
-                    <input 
-                      type="tel" name="phone" placeholder="09xxxxxxxx" 
-                      className="formInput" defaultValue={editingItem?.phone || ''} 
-                    />
-                  </div>
-                  <div className="inputGroup">
-                    <label>Số người đi cùng</label>
-                    <input 
-                      type="number" name="rsvp_count" min="0" placeholder="0"
-                      className="formInput" defaultValue={editingItem?.rsvp_count || 0} 
-                    />
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
-                  <div className="inputGroup">
-                    <label>Tiền mừng cưới (đ)</label>
-                    <input 
-                      type="number" name="gift_amount" min="0" placeholder="0"
-                      className="formInput" defaultValue={editingItem?.gift_amount || 0} 
-                    />
-                  </div>
-                  <div className="inputGroup">
-                    <label>Trạng thái</label>
-                    <select name="status" className="formSelect" defaultValue={editingItem?.status || 'uninvited'}>
-                      <option value="uninvited">Chưa mời</option>
-                      <option value="invited">Đã mời</option>
-                      <option value="attending">Sẽ tham gia</option>
-                      <option value="declined">Không tham gia</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="inputGroup">
-                  <label>Ghi chú</label>
-                  <textarea 
-                    name="notes" placeholder="Ví dụ: Ngồi bàn số 5 bạn chú rể..." rows={2}
-                    className="formInput" defaultValue={editingItem?.notes || ''}
-                  ></textarea>
-                </div>
+                {editingItem ? (
+                  /* Single item edit mode */
+                  <>
+                    <div className="inputGroup">
+                      <label>Họ & Tên khách mời</label>
+                      <input 
+                        type="text" name="name" required placeholder="Ví dụ: Nguyễn Văn A" 
+                        className="formInput" defaultValue={editingItem?.name || ''} 
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="inputGroup">
+                        <label>Phía gia đình</label>
+                        <CustomSelect 
+                          name="side" 
+                          defaultValue={editingItem?.side || 'groom'} 
+                          options={[
+                            { label: 'Nhà trai', value: 'groom' },
+                            { label: 'Nhà gái', value: 'bride' }
+                          ]}
+                        />
+                      </div>
+                      <div className="inputGroup">
+                        <label>Nhóm khách</label>
+                        <input 
+                          type="text" name="group_name" required placeholder="Ví dụ: Bạn đại học, Họ hàng..." 
+                          className="formInput" defaultValue={editingItem?.group_name || 'Bạn bè'} 
+                          list="guest-group-list"
+                        />
+                        <datalist id="guest-group-list">
+                          {guestGroups.map(grp => <option key={grp} value={grp} />)}
+                        </datalist>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                      <div className="inputGroup">
+                        <label>Số điện thoại</label>
+                        <input 
+                          type="tel" name="phone" placeholder="09xxxxxxxx" 
+                          className="formInput" defaultValue={editingItem?.phone || ''} 
+                        />
+                      </div>
+                      <div className="inputGroup">
+                        <label>Số người đi cùng</label>
+                        <input 
+                          type="number" name="rsvp_count" min="0" placeholder="0"
+                          className="formInput" defaultValue={editingItem?.rsvp_count || 0} 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                      <div className="inputGroup">
+                        <label>Tiền mừng cưới (đ)</label>
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          name="gift_amount" 
+                          placeholder="0"
+                          className="formInput" 
+                          defaultValue={formatCurrency(editingItem?.gift_amount ?? 0)}
+                          onChange={handleNumberInputChange}
+                        />
+                      </div>
+                      <div className="inputGroup">
+                        <label>Trạng thái</label>
+                        <CustomSelect 
+                          name="status" 
+                          defaultValue={editingItem?.status || 'uninvited'} 
+                          options={[
+                            { label: 'Chưa mời', value: 'uninvited' },
+                            { label: 'Đã mời', value: 'invited' },
+                            { label: 'Sẽ tham gia', value: 'attending' },
+                            { label: 'Không tham gia', value: 'declined' }
+                          ]}
+                        />
+                      </div>
+                    </div>
+                    <div className="inputGroup">
+                      <label>Ghi chú</label>
+                      <textarea 
+                        name="notes" placeholder="Ví dụ: Ngồi bàn số 5 bạn chú rể..." rows={2}
+                        className="formInput" defaultValue={editingItem?.notes || ''}
+                      ></textarea>
+                    </div>
+                  </>
+                ) : (
+                  /* Bulk items create mode */
+                  <>
+                    {bulkItems.map((item, idx) => (
+                      <div key={item.id} className="bulkItemBlock">
+                        <div className="bulkItemHeader">
+                          <span className="bulkItemTitle">Khách mời #{idx + 1}</span>
+                          {bulkItems.length > 1 && (
+                            <button 
+                              type="button" 
+                              onClick={() => setBulkItems(prev => prev.filter(row => row.id !== item.id))}
+                              className="removeRowBtn"
+                              title="Xóa dòng này"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="inputGroup">
+                          <label>Họ & Tên khách mời</label>
+                          <input 
+                            type="text" 
+                            value={item.name} 
+                            required 
+                            placeholder="Ví dụ: Nguyễn Văn A" 
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div className="inputGroup">
+                            <label>Phía gia đình</label>
+                            <CustomSelect 
+                              value={item.side}
+                              onChange={(val) => handleBulkItemChange(idx, 'side', val)}
+                              options={[
+                                { label: 'Nhà trai', value: 'groom' },
+                                { label: 'Nhà gái', value: 'bride' }
+                              ]}
+                            />
+                          </div>
+                          <div className="inputGroup">
+                            <label>Nhóm khách</label>
+                            <input 
+                              type="text" 
+                              value={item.group_name} 
+                              required 
+                              placeholder="Ví dụ: Bạn đại học, Họ hàng..." 
+                              className="formInput"
+                              onChange={(e) => handleBulkItemChange(idx, 'group_name', e.target.value)}
+                              list={`guest-group-list-${item.id}`}
+                            />
+                            <datalist id={`guest-group-list-${item.id}`}>
+                              {guestGroups.map(grp => <option key={grp} value={grp} />)}
+                            </datalist>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                          <div className="inputGroup">
+                            <label>Số điện thoại</label>
+                            <input 
+                              type="tel" 
+                              value={item.phone} 
+                              placeholder="09xxxxxxxx" 
+                              className="formInput"
+                              onChange={(e) => handleBulkItemChange(idx, 'phone', e.target.value)}
+                            />
+                          </div>
+                          <div className="inputGroup">
+                            <label>Số người đi cùng</label>
+                            <input 
+                              type="number" 
+                              value={item.rsvp_count} 
+                              placeholder="0"
+                              className="formInput"
+                              onChange={(e) => handleBulkItemChange(idx, 'rsvp_count', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                          <div className="inputGroup">
+                            <label>Tiền mừng cưới (đ)</label>
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              value={item.gift_amount} 
+                              placeholder="0"
+                              className="formInput"
+                              onChange={(e) => {
+                                handleNumberInputChange(e);
+                                handleBulkItemChange(idx, 'gift_amount', e.target.value);
+                              }}
+                            />
+                          </div>
+                          <div className="inputGroup">
+                            <label>Trạng thái</label>
+                            <CustomSelect 
+                              value={item.status}
+                              onChange={(val) => handleBulkItemChange(idx, 'status', val)}
+                              options={[
+                                { label: 'Chưa mời', value: 'uninvited' },
+                                { label: 'Đã mời', value: 'invited' },
+                                { label: 'Sẽ tham gia', value: 'attending' },
+                                { label: 'Không tham gia', value: 'declined' }
+                              ]}
+                            />
+                          </div>
+                        </div>
+                        <div className="inputGroup">
+                          <label>Ghi chú</label>
+                          <textarea 
+                            value={item.notes} 
+                            placeholder="Ví dụ: Ngồi bàn số 5 bạn chú rể..." rows={2}
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'notes', e.target.value)}
+                          ></textarea>
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      type="button" 
+                      onClick={() => setBulkItems(prev => [...prev, getInitialItem('guest')])}
+                      className="addBulkRowBtn"
+                    >
+                      <Plus size={16} /> Thêm dòng mới
+                    </button>
+                  </>
+                )}
               </div>
               <div className="modalFooter">
                 <button type="button" onClick={() => setShowModal(null)} className="btn btnSecondary">Hủy</button>
@@ -1635,44 +2794,134 @@ export default function WeddingPlanner() {
               <button className="closeButton" onClick={() => setShowModal(null)}>&times;</button>
             </div>
             <form onSubmit={handleSaveChecklist}>
-              <div className="modalBody">
-                <div className="inputGroup">
-                  <label>Tên công việc cần làm</label>
-                  <input 
-                    type="text" name="task" required placeholder="Ví dụ: Gửi thiệp mời online cho bạn đại học" 
-                    className="formInput" defaultValue={editingItem?.task || ''} 
-                  />
-                </div>
-                <div className="inputGroup">
-                  <label>Thời điểm thực hiện</label>
-                  <select name="category" className="formSelect" defaultValue={editingItem?.category || 'Trước ngày cưới'}>
-                    {checklistCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="inputGroup">
-                    <label>Hạn hoàn thành</label>
-                    <input 
-                      type="date" name="due_date" 
-                      className="formInput" defaultValue={editingItem?.due_date || ''} 
-                    />
-                  </div>
-                  <div className="inputGroup">
-                    <label>Người chịu trách nhiệm</label>
-                    <select name="assigned_to" className="formSelect" defaultValue={editingItem?.assigned_to || 'Cả hai'}>
-                      <option value="Chú rể">Chú rể</option>
-                      <option value="Cô dâu">Cô dâu</option>
-                      <option value="Cả hai">Cả hai</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="inputGroup">
-                  <label>Ghi chú chi tiết</label>
-                  <textarea 
-                    name="notes" placeholder="Mô tả công việc..." rows={3}
-                    className="formInput" defaultValue={editingItem?.notes || ''}
-                  ></textarea>
-                </div>
+              <div className="modalBody" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                {editingItem ? (
+                  /* Single item edit mode */
+                  <>
+                    <div className="inputGroup">
+                      <label>Tên công việc cần làm</label>
+                      <input 
+                        type="text" name="task" required placeholder="Ví dụ: Gửi thiệp mời online cho bạn đại học" 
+                        className="formInput" defaultValue={editingItem?.task || ''} 
+                      />
+                    </div>
+                    <div className="inputGroup">
+                      <label>Thời điểm thực hiện</label>
+                      <CustomSelect 
+                        name="category" 
+                        defaultValue={editingItem?.category || 'Trước ngày cưới'} 
+                        options={checklistCategories}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="inputGroup">
+                        <label>Hạn hoàn thành</label>
+                        <div className="dateWrapper">
+                          <input 
+                            type="date" name="due_date" 
+                            className="formInput customDateInput" defaultValue={editingItem?.due_date || ''} 
+                          />
+                          <Calendar size={14} className="calendarIcon" />
+                        </div>
+                      </div>
+                      <div className="inputGroup">
+                        <label>Người chịu trách nhiệm</label>
+                        <select name="assigned_to" className="formSelect" defaultValue={editingItem?.assigned_to || 'Cả hai'}>
+                          <option value="Chú rể">Chú rể</option>
+                          <option value="Cô dâu">Cô dâu</option>
+                          <option value="Cả hai">Cả hai</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="inputGroup">
+                      <label>Ghi chú chi tiết</label>
+                      <textarea 
+                        name="notes" placeholder="Mô tả công việc..." rows={3}
+                        className="formInput" defaultValue={editingItem?.notes || ''}
+                      ></textarea>
+                    </div>
+                  </>
+                ) : (
+                  /* Bulk items create mode */
+                  <>
+                    {bulkItems.map((item, idx) => (
+                      <div key={item.id} className="bulkItemBlock">
+                        <div className="bulkItemHeader">
+                          <span className="bulkItemTitle">Công việc #{idx + 1}</span>
+                          {bulkItems.length > 1 && (
+                            <button 
+                              type="button" 
+                              onClick={() => setBulkItems(prev => prev.filter(row => row.id !== item.id))}
+                              className="removeRowBtn"
+                              title="Xóa dòng này"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="inputGroup">
+                          <label>Tên công việc cần làm</label>
+                          <input 
+                            type="text" 
+                            value={item.task} 
+                            required 
+                            placeholder="Ví dụ: Gửi thiệp mời online cho bạn đại học" 
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'task', e.target.value)}
+                          />
+                        </div>
+                        <div className="inputGroup">
+                          <label>Thời điểm thực hiện</label>
+                          <select 
+                            className="formSelect" 
+                            value={item.category}
+                            onChange={(e) => handleBulkItemChange(idx, 'category', e.target.value)}
+                          >
+                            {checklistCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div className="inputGroup">
+                            <label>Hạn hoàn thành</label>
+                            <div className="dateWrapper">
+                              <input 
+                                type="date" 
+                                value={item.due_date} 
+                                className="formInput customDateInput"
+                                onChange={(e) => handleBulkItemChange(idx, 'due_date', e.target.value)}
+                              />
+                              <Calendar size={14} className="calendarIcon" />
+                            </div>
+                          </div>
+                          <div className="inputGroup">
+                            <label>Người chịu trách nhiệm</label>
+                            <CustomSelect 
+                              value={item.assigned_to}
+                              onChange={(val) => handleBulkItemChange(idx, 'assigned_to', val)}
+                              options={['Chú rể', 'Cô dâu', 'Cả hai']}
+                            />
+                          </div>
+                        </div>
+                        <div className="inputGroup">
+                          <label>Ghi chú chi tiết</label>
+                          <textarea 
+                            value={item.notes} 
+                            placeholder="Mô tả công việc..." rows={2}
+                            className="formInput"
+                            onChange={(e) => handleBulkItemChange(idx, 'notes', e.target.value)}
+                          ></textarea>
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      type="button" 
+                      onClick={() => setBulkItems(prev => [...prev, getInitialItem('checklist')])}
+                      className="addBulkRowBtn"
+                    >
+                      <Plus size={16} /> Thêm dòng mới
+                    </button>
+                  </>
+                )}
               </div>
               <div className="modalFooter">
                 <button type="button" onClick={() => setShowModal(null)} className="btn btnSecondary">Hủy</button>
